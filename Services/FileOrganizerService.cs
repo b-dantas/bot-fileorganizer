@@ -89,7 +89,7 @@ namespace bot_fileorganizer.Services
         {
             string fileName = Path.GetFileNameWithoutExtension(filePath);
             
-            // Verifica se o nome segue o padrão "Livro - Autor - Título"
+            // Verifica se o nome segue o padrão "[Tipo] - Autor - Título"
             string[] parts = fileName.Split('-');
             if (parts.Length < 3)
             {
@@ -97,7 +97,8 @@ namespace bot_fileorganizer.Services
             }
 
             string prefix = parts[0].Trim();
-            if (!prefix.Equals("Livro", StringComparison.OrdinalIgnoreCase))
+            // Verifica se o prefixo é um dos tipos válidos
+            if (!IsValidDocumentTypePrefix(prefix))
             {
                 return false;
             }
@@ -109,6 +110,17 @@ namespace bot_fileorganizer.Services
             }
 
             return true;
+        }
+
+        /// <summary>
+        /// Verifica se o prefixo é um tipo de documento válido
+        /// </summary>
+        /// <param name="prefix">Prefixo a ser verificado</param>
+        /// <returns>True se o prefixo for válido, False caso contrário</returns>
+        private bool IsValidDocumentTypePrefix(string prefix)
+        {
+            string[] validPrefixes = { "Livro", "Revista", "Artigo", "Paper", "Jornal", "Documento" };
+            return validPrefixes.Any(p => prefix.Equals(p, StringComparison.OrdinalIgnoreCase));
         }
 
         /// <summary>
@@ -135,8 +147,9 @@ namespace bot_fileorganizer.Services
         /// Gera uma proposta de novo nome para um arquivo
         /// </summary>
         /// <param name="filePath">Caminho do arquivo</param>
+        /// <param name="documentType">Tipo de documento (opcional)</param>
         /// <returns>Proposta de novo nome</returns>
-        public string GenerateProposedName(string filePath)
+        public string GenerateProposedName(string filePath, string? documentType = null)
         {
             string? title = _pdfAnalyzer.ExtractTitle(filePath);
             string? author = _pdfAnalyzer.ExtractAuthor(filePath);
@@ -145,8 +158,14 @@ namespace bot_fileorganizer.Services
             title ??= "Desconhecido";
             author ??= "Desconhecido";
             
-            // Gera o novo nome no formato "Livro - Autor - Título.pdf"
-            string newName = $"Livro - {author} - {title}.pdf";
+            // Se o tipo de documento não for fornecido, identifica-o
+            documentType ??= _pdfAnalyzer.IdentifyDocumentType(filePath);
+            
+            // Obtém o prefixo com base no tipo de documento
+            string prefix = GetPrefixFromDocumentType(documentType);
+            
+            // Gera o novo nome no formato "[Tipo] - Autor - Título.pdf"
+            string newName = $"{prefix} - {author} - {title}.pdf";
             
             // Substitui caracteres inválidos para nomes de arquivo no Windows
             char[] invalidChars = Path.GetInvalidFileNameChars();
@@ -165,14 +184,34 @@ namespace bot_fileorganizer.Services
         }
 
         /// <summary>
+        /// Obtém o prefixo com base no tipo de documento
+        /// </summary>
+        /// <param name="documentType">Tipo de documento</param>
+        /// <returns>Prefixo correspondente</returns>
+        private string GetPrefixFromDocumentType(string documentType)
+        {
+            return documentType switch
+            {
+                "E-book" => "Livro",
+                "Revista" => "Revista",
+                "Artigo" => "Artigo",
+                "Paper Científico" => "Paper",
+                "Jornal" => "Jornal",
+                _ => "Documento"
+            };
+        }
+
+        /// <summary>
         /// Cria um registro para um arquivo
         /// </summary>
         /// <param name="filePath">Caminho do arquivo</param>
+        /// <param name="documentType">Tipo de documento (opcional)</param>
         /// <returns>Registro do arquivo</returns>
-        public FileRecord CreateFileRecord(string filePath)
+        public FileRecord CreateFileRecord(string filePath, string? documentType = null)
         {
             string originalName = Path.GetFileName(filePath);
-            string proposedName = GenerateProposedName(filePath);
+            documentType ??= _pdfAnalyzer.IdentifyDocumentType(filePath);
+            string proposedName = GenerateProposedName(filePath, documentType);
             
             return new FileRecord
             {
@@ -185,7 +224,7 @@ namespace bot_fileorganizer.Services
                 ExtractedTitle = _pdfAnalyzer.ExtractTitle(filePath),
                 ExtractedAuthor = _pdfAnalyzer.ExtractAuthor(filePath),
                 IsEbook = _pdfAnalyzer.IsEbook(filePath),
-                DocumentType = _pdfAnalyzer.IdentifyDocumentType(filePath),
+                DocumentType = documentType,
                 MetadataUpdateRejected = false
             };
         }
@@ -283,14 +322,20 @@ namespace bot_fileorganizer.Services
         /// Processa vários arquivos, criando registros e salvando no repositório
         /// </summary>
         /// <param name="filePaths">Lista de caminhos de arquivos</param>
+        /// <param name="documentTypes">Dicionário de tipos de documentos por caminho (opcional)</param>
         /// <returns>Lista de registros de arquivos</returns>
-        public List<FileRecord> ProcessFiles(List<string> filePaths)
+        public List<FileRecord> ProcessFiles(List<string> filePaths, Dictionary<string, string>? documentTypes = null)
         {
             var records = new List<FileRecord>();
             
             foreach (var filePath in filePaths)
             {
-                records.Add(CreateFileRecord(filePath));
+                string? documentType = null;
+                if (documentTypes != null && documentTypes.ContainsKey(filePath))
+                {
+                    documentType = documentTypes[filePath];
+                }
+                records.Add(CreateFileRecord(filePath, documentType));
             }
             
             _repository.AddRecords(records);
@@ -379,7 +424,7 @@ namespace bot_fileorganizer.Services
             string fileName = Path.GetFileNameWithoutExtension(filePath);
             string[] parts = fileName.Split('-');
             
-            if (parts.Length >= 3 && parts[0].Trim().Equals("Livro", StringComparison.OrdinalIgnoreCase))
+            if (parts.Length >= 3 && IsValidDocumentTypePrefix(parts[0].Trim()))
             {
                 string author = parts[1].Trim();
                 string title = parts[2].Trim();
@@ -398,6 +443,36 @@ namespace bot_fileorganizer.Services
             
             // Se não conseguir extrair, retorna valores vazios
             return (string.Empty, string.Empty);
+        }
+
+        /// <summary>
+        /// Extrai o tipo de documento do nome do arquivo
+        /// </summary>
+        /// <param name="filePath">Caminho do arquivo</param>
+        /// <returns>Tipo de documento extraído ou string vazia se não for possível extrair</returns>
+        public string ExtractDocumentTypeFromFileName(string filePath)
+        {
+            string fileName = Path.GetFileNameWithoutExtension(filePath);
+            string[] parts = fileName.Split('-');
+            
+            if (parts.Length >= 3)
+            {
+                string prefix = parts[0].Trim();
+                if (IsValidDocumentTypePrefix(prefix))
+                {
+                    return prefix switch
+                    {
+                        "Livro" => "E-book",
+                        "Revista" => "Revista",
+                        "Artigo" => "Artigo",
+                        "Paper" => "Paper Científico",
+                        "Jornal" => "Jornal",
+                        _ => "Documento PDF"
+                    };
+                }
+            }
+            
+            return string.Empty;
         }
 
         /// <summary>
@@ -501,6 +576,19 @@ namespace bot_fileorganizer.Services
             
             // Retorna o lote específico
             return allFiles.Skip(batchIndex * batchSize).Take(batchSize).ToList();
+        }
+
+        /// <summary>
+        /// Processa um arquivo, criando um registro e salvando no repositório
+        /// </summary>
+        /// <param name="filePath">Caminho do arquivo</param>
+        /// <param name="documentType">Tipo de documento (opcional)</param>
+        /// <returns>Registro do arquivo</returns>
+        public FileRecord ProcessFile(string filePath, string? documentType = null)
+        {
+            var record = CreateFileRecord(filePath, documentType);
+            _repository.AddRecord(record);
+            return record;
         }
 
         /// <summary>

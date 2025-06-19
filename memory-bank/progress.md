@@ -184,3 +184,66 @@ Foi implementada uma simplificação no método de atualização de metadados:
    - Melhor experiência do usuário com menos perguntas e decisões
 
 Esta simplificação mantém todas as funcionalidades importantes, como a confirmação individual para cada arquivo, a exibição do tipo de documento e metadados atuais, e o registro de rejeições, mas torna o processo mais direto e fácil de entender para o usuário.
+
+## Atualização (19/06/2025) - Expansão do Padrão de Nomenclatura para Diferentes Tipos de Mídia
+
+Foi implementada uma expansão no padrão de nomenclatura para suportar diferentes tipos de mídia:
+
+1. **Problema Identificado**:
+   - O sistema estava configurado para padronizar apenas nomes de e-books com o formato "Livro - Autor - Título.pdf"
+   - Não havia suporte para outros tipos de mídia como revistas, artigos, papers científicos e jornais
+   - O usuário não tinha a opção de confirmar o tipo de mídia detectado pela heurística
+
+2. **Solução Implementada**:
+   - Modificado o método `IsFileNameStandardized` para aceitar diferentes prefixos com base no tipo de documento:
+     - "Livro" para e-books
+     - "Revista" para revistas
+     - "Artigo" para artigos
+     - "Paper" para papers científicos
+     - "Jornal" para jornais
+     - "Documento" para outros tipos
+   - Atualizado o método `GenerateProposedName` para usar o tipo de documento identificado pelo PdfAnalyzer
+   - Adicionado método `GetPrefixFromDocumentType` para converter o tipo de documento em um prefixo para o nome do arquivo
+   - Atualizado o método `ExtractInfoFromFileName` para reconhecer os diferentes prefixos
+   - Adicionado método `ExtractDocumentTypeFromFileName` para extrair o tipo de documento do nome do arquivo
+   - Implementado método `ConfirmDocumentType` no Program.cs para permitir que o usuário confirme ou altere o tipo de documento detectado
+
+3. **Fluxo de Confirmação de Tipo de Documento**:
+   - Durante o processamento de arquivos, o sistema exibe o tipo de documento detectado pela heurística
+   - O usuário pode confirmar o tipo detectado ou escolher um tipo diferente
+   - O tipo confirmado é usado para gerar o novo nome do arquivo
+   - O novo nome segue o padrão "[Tipo] - Autor - Título.pdf"
+
+4. **Benefícios da Alteração**:
+   - Melhor organização dos arquivos por tipo de mídia
+   - Maior precisão na categorização de documentos
+   - Mais controle para o usuário sobre o processo de renomeação
+   - Suporte para uma variedade maior de tipos de documentos
+
+Esta expansão torna o bot mais versátil, permitindo a padronização de nomes de arquivos para diferentes tipos de mídia, não apenas e-books. Além disso, a confirmação do tipo de documento pelo usuário melhora a precisão da categorização e dá mais controle sobre o processo de renomeação.
+
+## Atualização (19/06/2025) - Melhoria no Fluxo de Processamento de Arquivos
+
+Foi implementada uma melhoria no fluxo de processamento de arquivos para tornar a experiência do usuário mais intuitiva:
+
+1. **Problema Identificado**:
+   - O método `ProcessarArquivos` primeiro solicitava a confirmação do tipo de documento para todos os arquivos do lote
+   - Depois, em um segundo loop, exibia as propostas de renomeação para cada arquivo
+   - Isso criava uma experiência fragmentada, onde o usuário precisava lembrar quais tipos havia confirmado para cada arquivo
+
+2. **Solução Implementada**:
+   - Modificado o método `ProcessarArquivos` para processar cada arquivo completamente antes de passar para o próximo
+   - Para cada arquivo:
+     1. O usuário confirma o tipo de documento
+     2. Imediatamente após, vê a proposta de renomeação para o mesmo arquivo
+     3. Decide se aceita ou rejeita a proposta
+     4. Só então passa para o próximo arquivo
+   - Substituído o processamento em lote por processamento individual, mantendo a organização em lotes
+
+3. **Benefícios da Alteração**:
+   - Fluxo mais natural e intuitivo para o usuário
+   - Feedback imediato: o usuário vê o resultado da sua escolha de tipo de documento na proposta de renomeação
+   - Menos confusão: o usuário não precisa lembrar quais tipos de documentos confirmou para cada arquivo
+   - Experiência mais coesa: cada arquivo é processado completamente antes de passar para o próximo
+
+Esta melhoria torna o processo de renomeação mais direto e fácil de entender, proporcionando uma melhor experiência ao usuário sem perder nenhuma funcionalidade.

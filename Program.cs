@@ -244,17 +244,32 @@ namespace bot_fileorganizer
                     continue;
                 }
 
-                // Processa os arquivos do lote e obtém as propostas de renomeação
-                var registros = _fileOrganizerService.ProcessFiles(arquivosDoLote);
-
-                // Exibe as propostas e solicita confirmação para cada uma
-                foreach (var registro in registros)
+                // Processa cada arquivo do lote individualmente
+                foreach (var arquivo in arquivosDoLote)
                 {
+                    // Confirmação do tipo de documento
+                    Console.Clear();
+                    Console.WriteLine("=================================================");
+                    Console.WriteLine("            CONFIRMAÇÃO DE TIPO DE DOCUMENTO     ");
+                    Console.WriteLine("=================================================");
+                    Console.WriteLine($"\nArquivo: {Path.GetFileName(arquivo)}");
+                    
+                    // Obtém o tipo de documento detectado pela heurística
+                    string tipoDetectado = new PdfAnalyzer().IdentifyDocumentType(arquivo);
+                    
+                    // Permite que o usuário confirme ou altere o tipo de documento
+                    string tipoConfirmado = ConfirmDocumentType(arquivo, tipoDetectado);
+                    
+                    // Processa o arquivo com o tipo de documento confirmado
+                    var registro = _fileOrganizerService.ProcessFile(arquivo, tipoConfirmado);
+                    
+                    // Exibe a proposta de renomeação imediatamente
                     Console.Clear();
                     Console.WriteLine("=================================================");
                     Console.WriteLine("            PROPOSTA DE RENOMEAÇÃO               ");
                     Console.WriteLine("=================================================");
                     Console.WriteLine($"\nArquivo original: {registro.OriginalName}");
+                    Console.WriteLine($"Tipo de documento: {registro.DocumentType}");
                     Console.WriteLine($"Novo nome proposto: {registro.ProposedName}");
                     Console.WriteLine("\nAceitar esta proposta? (S/N)");
                     
@@ -350,6 +365,44 @@ namespace bot_fileorganizer
             Console.ReadKey();
         }
 
+        /// <summary>
+        /// Permite que o usuário confirme ou altere o tipo de documento detectado pela heurística
+        /// </summary>
+        /// <param name="filePath">Caminho do arquivo</param>
+        /// <param name="detectedType">Tipo de documento detectado</param>
+        /// <returns>Tipo de documento confirmado pelo usuário</returns>
+        static string ConfirmDocumentType(string filePath, string detectedType)
+        {
+            Console.WriteLine($"\nTipo de documento detectado: {detectedType}");
+            Console.WriteLine("Você concorda com este tipo? (S/N)");
+            string? resposta = Console.ReadLine();
+            
+            if (resposta?.Trim().ToUpper() == "S")
+            {
+                return detectedType;
+            }
+            
+            Console.WriteLine("\nEscolha o tipo correto:");
+            Console.WriteLine("1. E-book");
+            Console.WriteLine("2. Revista");
+            Console.WriteLine("3. Artigo");
+            Console.WriteLine("4. Paper Científico");
+            Console.WriteLine("5. Jornal");
+            Console.WriteLine("6. Outro Documento");
+            
+            resposta = Console.ReadLine();
+            
+            return resposta switch
+            {
+                "1" => "E-book",
+                "2" => "Revista",
+                "3" => "Artigo",
+                "4" => "Paper Científico",
+                "5" => "Jornal",
+                _ => "Documento PDF"
+            };
+        }
+        
         static void AtualizarMetadados()
         {
             if (_fileOrganizerService == null)
