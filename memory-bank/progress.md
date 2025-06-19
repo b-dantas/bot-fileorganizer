@@ -1,8 +1,8 @@
 # Progress
 
-Atualmente o bot não foi criado. A primeira versão deve se concentrar em arquivos do tipo PDF, prefencialmente em arquivos de e-book, nome o nome do arquivo deve serguir um padrão como:
+Atualmente o bot não foi criado. A primeira versão deve se concentrar em arquivos do tipo PDF, prefencialmente em arquivos de e-book, nome o nome do arquivo deve seguir um padrão como:
 
-> Livro - Autor - Título.pdf
+> Livro - Nome Autor - Título.pdf
 
 É necessário respeitar o padrão de nomeação de arquivos do Windows, levando em conta a restrição de caracteres especiais e o tamanho máximo do nome do arquivo.
 
