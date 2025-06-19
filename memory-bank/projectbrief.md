@@ -10,22 +10,21 @@ Desenvolver um bot em C# que padronize nomes de arquivos PDF, especialmente e-bo
 
 ### Público-Alvo
 
-Usuários que possuem coleções de e-books em PDF e desejam organizar seus arquivos de forma padronizada para facilitar a busca visual.
+Usuários que possuem coleções PDFs e desejam organizar seus arquivos de forma padronizada para facilitar a busca visual.
 
 ### Funcionalidades Principais
 
 1. **Seleção de Diretório**: Permitir que o usuário selecione o diretório onde estão os arquivos a serem organizados.
-2. **Análise de Arquivos**: Identificar arquivos PDF que não seguem o padrão de nomenclatura.
-3. **Extração de Metadados**: Extrair informações como título e autor dos arquivos PDF.
-4. **Propostas de Renomeação**: Gerar propostas de novos nomes para os arquivos, seguindo o padrão "Livro - Autor - Título.pdf".
-5. **Confirmação do Usuário**: Permitir que o usuário aceite ou rejeite cada proposta de renomeação.
-6. **Renomeação de Arquivos**: Renomear os arquivos conforme aprovado pelo usuário.
-7. **Histórico de Operações**: Manter um registro das operações realizadas.
+1. **Análise de Arquivos**: Identificar arquivos PDF que não seguem o padrão de nomenclatura.
+1. **Extração de Metadados**: Extrair informações como título e autor dos arquivos PDF.
+1. **Propostas de Renomeação**: Gerar propostas de novos nomes para os arquivos, seguindo o padrão "Livro - Autor - Título.pdf".
+1. **Confirmação do Usuário**: Permitir que o usuário aceite ou rejeite qualquer operação que envolva alteração do arquivo, seja renomeação ou mudança de metadados.
+1. **Histórico de Operações**: Manter um registro das operações realizadas.
 
 ### Restrições e Requisitos
 
 1. Respeitar as restrições de nomenclatura de arquivos do Windows.
 2. Limitar o tamanho dos nomes de arquivo para evitar problemas com caminhos muito longos.
-3. Identificar corretamente se um arquivo PDF é um e-book.
+3. Identificar corretamente se um arquivo PDF é um e-book, um artigo, um paper científico ou a versão digital de um jornal.
 4. Manter a persistência das operações em um arquivo JSON.
 5. Interface de console simples e intuitiva.
