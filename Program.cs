@@ -254,11 +254,11 @@ namespace bot_fileorganizer
                     Console.WriteLine("=================================================");
                     Console.WriteLine($"\nArquivo: {Path.GetFileName(arquivo)}");
                     
-                    // Obtém o tipo de documento detectado pela heurística
-                    string tipoDetectado = new PdfAnalyzer().IdentifyDocumentType(arquivo);
+                    // Cria uma instância do analisador de PDF
+                    var pdfAnalyzer = new PdfAnalyzer();
                     
                     // Permite que o usuário confirme ou altere o tipo de documento
-                    string tipoConfirmado = ConfirmDocumentType(arquivo, tipoDetectado);
+                    string tipoConfirmado = ConfirmDocumentType(arquivo, pdfAnalyzer);
                     
                     // Processa o arquivo com o tipo de documento confirmado
                     var registro = _fileOrganizerService.ProcessFile(arquivo, tipoConfirmado);
@@ -369,17 +369,38 @@ namespace bot_fileorganizer
         /// Permite que o usuário confirme ou altere o tipo de documento detectado pela heurística
         /// </summary>
         /// <param name="filePath">Caminho do arquivo</param>
-        /// <param name="detectedType">Tipo de documento detectado</param>
+        /// <param name="pdfAnalyzer">Instância do analisador de PDF</param>
         /// <returns>Tipo de documento confirmado pelo usuário</returns>
-        static string ConfirmDocumentType(string filePath, string detectedType)
+        static string ConfirmDocumentType(string filePath, PdfAnalyzer pdfAnalyzer)
         {
-            Console.WriteLine($"\nTipo de documento detectado: {detectedType}");
-            Console.WriteLine("Você concorda com este tipo? (S/N)");
+            // Obtém todos os tipos possíveis com seus percentuais de confiança
+            var tiposComConfianca = pdfAnalyzer.GetDocumentTypeConfidences(filePath);
+            
+            // Ordena por confiança (do maior para o menor)
+            tiposComConfianca = tiposComConfianca.OrderByDescending(t => t.Confidence).ToList();
+            
+            // Obtém o tipo mais provável
+            var tipoMaisProvavel = tiposComConfianca.First();
+            
+            Console.WriteLine($"\nTipo de documento detectado: {tipoMaisProvavel.DocumentType} (Confiança: {tipoMaisProvavel.Confidence:F1}%)");
+            
+            // Exibe os outros tipos possíveis
+            Console.WriteLine("\nOutros tipos possíveis:");
+            for (int i = 1; i < tiposComConfianca.Count; i++)
+            {
+                var tipo = tiposComConfianca[i];
+                if (tipo.Confidence > 0)
+                {
+                    Console.WriteLine($"- {tipo.DocumentType} (Confiança: {tipo.Confidence:F1}%)");
+                }
+            }
+            
+            Console.WriteLine("\nVocê concorda com o tipo detectado? (S/N)");
             string? resposta = Console.ReadLine();
             
             if (resposta?.Trim().ToUpper() == "S")
             {
-                return detectedType;
+                return tipoMaisProvavel.DocumentType;
             }
             
             Console.WriteLine("\nEscolha o tipo correto:");
@@ -468,7 +489,9 @@ namespace bot_fileorganizer
                 var pdfAnalyzer = new PdfAnalyzer();
                 
                 Console.WriteLine($"\nArquivo: {nomeArquivo}");
-                Console.WriteLine($"Tipo de documento: {pdfAnalyzer.IdentifyDocumentType(arquivo)}");
+                // Obtém o tipo de documento com confiança
+                var tipoComConfianca = pdfAnalyzer.IdentifyDocumentTypeWithConfidence(arquivo);
+                Console.WriteLine($"Tipo de documento: {tipoComConfianca.DocumentType} (Confiança: {tipoComConfianca.Confidence:F1}%)");
                 Console.WriteLine($"Autor atual: {pdfAnalyzer.ExtractAuthor(arquivo) ?? "Não disponível"}");
                 Console.WriteLine($"Título atual: {pdfAnalyzer.ExtractTitle(arquivo) ?? "Não disponível"}");
                 Console.WriteLine($"Novo autor proposto: {autor}");

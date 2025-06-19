@@ -247,3 +247,37 @@ Foi implementada uma melhoria no fluxo de processamento de arquivos para tornar 
    - Experiência mais coesa: cada arquivo é processado completamente antes de passar para o próximo
 
 Esta melhoria torna o processo de renomeação mais direto e fácil de entender, proporcionando uma melhor experiência ao usuário sem perder nenhuma funcionalidade.
+
+## Atualização (19/06/2025) - Implementação de Detecção Heurística com Percentual de Precisão
+
+Foi implementada uma melhoria na detecção heurística de tipos de documentos para exibir o percentual de precisão:
+
+1. **Problema Identificado**:
+   - A detecção de tipos de documentos retornava apenas valores booleanos (verdadeiro/falso)
+   - Não havia indicação de confiança ou precisão na detecção
+   - O usuário não tinha informações suficientes para avaliar a qualidade da detecção
+
+2. **Solução Implementada**:
+   - Adicionada nova classe `DocumentTypeResult` que contém o tipo de documento e o percentual de confiança
+   - Implementados métodos para calcular o percentual de confiança para cada tipo de documento:
+     - `CalculateEbookConfidence`: Calcula a confiança de que um PDF é um e-book
+     - `CalculateArticleConfidence`: Calcula a confiança de que um PDF é um artigo
+     - `CalculateScientificPaperConfidence`: Calcula a confiança de que um PDF é um paper científico
+     - `CalculateNewspaperConfidence`: Calcula a confiança de que um PDF é um jornal
+     - `CalculateMagazineConfidence`: Calcula a confiança de que um PDF é uma revista
+   - Adicionado método `GetDocumentTypeConfidences` que retorna todos os tipos possíveis com seus percentuais
+   - Modificado o método `ConfirmDocumentType` para exibir o percentual de confiança e listar outros tipos possíveis
+
+3. **Fatores Considerados no Cálculo de Confiança**:
+   - Número de páginas do documento (comparado com o tamanho típico de cada tipo)
+   - Palavras-chave encontradas no texto (proporção em relação ao total de palavras-chave)
+   - Padrões específicos de cada tipo de documento (datas em jornais, referências em papers, etc.)
+   - Nome do arquivo (presença de termos indicativos do tipo)
+
+4. **Benefícios da Alteração**:
+   - Maior transparência: o usuário vê o percentual de confiança na detecção
+   - Decisões mais informadas: o usuário pode avaliar a qualidade da detecção
+   - Melhor experiência: exibição de todos os tipos possíveis com seus percentuais
+   - Detecção mais robusta: consideração de múltiplos fatores no cálculo de confiança
+
+Esta melhoria proporciona uma experiência mais transparente e informativa para o usuário, permitindo que ele tome decisões mais conscientes sobre a categorização dos documentos.

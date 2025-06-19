@@ -6,6 +6,28 @@ using System.Text.RegularExpressions;
 namespace bot_fileorganizer.Services
 {
     /// <summary>
+    /// Representa o resultado da detecção de tipo de documento com percentual de confiança
+    /// </summary>
+    public class DocumentTypeResult
+    {
+        /// <summary>
+        /// Tipo de documento detectado
+        /// </summary>
+        public string DocumentType { get; set; }
+        
+        /// <summary>
+        /// Percentual de confiança na detecção (0-100%)
+        /// </summary>
+        public double Confidence { get; set; }
+        
+        public DocumentTypeResult(string documentType, double confidence)
+        {
+            DocumentType = documentType;
+            Confidence = Math.Clamp(confidence, 0, 100);
+        }
+    }
+    
+    /// <summary>
     /// Serviço para análise de arquivos PDF
     /// </summary>
     public class PdfAnalyzer
@@ -164,56 +186,130 @@ namespace bot_fileorganizer.Services
         }
 
         /// <summary>
+        /// Calcula o percentual de confiança de que um arquivo PDF é um e-book
+        /// </summary>
+        /// <param name="filePath">Caminho do arquivo PDF</param>
+        /// <returns>Percentual de confiança (0-100%)</returns>
+        public double CalculateEbookConfidence(string filePath)
+        {
+            try
+            {
+                double confidence = 0;
+                
+                using (PdfReader reader = new PdfReader(filePath))
+                using (PdfDocument document = new PdfDocument(reader))
+                {
+                    // Fator 1: Número de páginas
+                    int pageCount = document.GetNumberOfPages();
+                    if (pageCount < 5)
+                    {
+                        confidence -= 30; // Penalidade para documentos muito curtos
+                    }
+                    else if (pageCount > 30)
+                    {
+                        confidence += 20; // Bônus para documentos longos
+                    }
+                    
+                    // Fator 2: Palavras-chave encontradas
+                    string text = ExtractTextFromPages(document, 1, Math.Min(pageCount, 5));
+                    int keywordsFound = 0;
+                    
+                    foreach (string keyword in _ebookKeywords)
+                    {
+                        if (text.Contains(keyword, StringComparison.OrdinalIgnoreCase))
+                        {
+                            keywordsFound++;
+                        }
+                    }
+                    
+                    // Adiciona pontos com base na proporção de palavras-chave encontradas
+                    confidence += (keywordsFound * 100.0 / _ebookKeywords.Length) * 0.4;
+                    
+                    // Fator 3: Nome do arquivo
+                    string fileName = Path.GetFileNameWithoutExtension(filePath).ToLower();
+                    if (fileName.Contains("livro") || fileName.Contains("book"))
+                    {
+                        confidence += 15;
+                    }
+                    if (fileName.StartsWith("livro - ") || fileName.Contains("ebook"))
+                    {
+                        confidence += 25;
+                    }
+                }
+                
+                return Math.Clamp(confidence, 0, 100);
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"Erro ao calcular confiança de e-book: {ex.Message}");
+                return 0;
+            }
+        }
+        
+        /// <summary>
         /// Verifica se um arquivo PDF é um e-book
         /// </summary>
         /// <param name="filePath">Caminho do arquivo PDF</param>
         /// <returns>True se for um e-book, False caso contrário</returns>
         public bool IsEbook(string filePath)
         {
+            return CalculateEbookConfidence(filePath) >= 40; // Limiar de confiança para considerar como e-book
+        }
+        
+        /// <summary>
+        /// Calcula o percentual de confiança de que um arquivo PDF é um artigo
+        /// </summary>
+        /// <param name="filePath">Caminho do arquivo PDF</param>
+        /// <returns>Percentual de confiança (0-100%)</returns>
+        public double CalculateArticleConfidence(string filePath)
+        {
             try
             {
+                double confidence = 0;
+                
                 using (PdfReader reader = new PdfReader(filePath))
                 using (PdfDocument document = new PdfDocument(reader))
                 {
-                    // Verifica o número de páginas (e-books geralmente têm várias páginas)
-                    if (document.GetNumberOfPages() < 5)
+                    // Fator 1: Número de páginas
+                    int pageCount = document.GetNumberOfPages();
+                    if (pageCount > 30)
                     {
-                        return false;
+                        confidence -= 30; // Penalidade para documentos muito longos
                     }
-
-                    // Extrai texto das primeiras páginas para buscar palavras-chave
-                    string text = ExtractTextFromPages(document, 1, 5);
+                    else if (pageCount >= 3 && pageCount <= 15)
+                    {
+                        confidence += 20; // Bônus para documentos de tamanho típico de artigos
+                    }
                     
-                    // Verifica se o texto contém palavras-chave que indicam que é um livro
-                    foreach (string keyword in _ebookKeywords)
+                    // Fator 2: Palavras-chave encontradas
+                    string text = ExtractTextFromPages(document, 1, Math.Min(pageCount, 3));
+                    int keywordsFound = 0;
+                    
+                    foreach (string keyword in _articleKeywords)
                     {
                         if (text.Contains(keyword, StringComparison.OrdinalIgnoreCase))
                         {
-                            return true;
+                            keywordsFound++;
                         }
                     }
-
-                    // Verifica se o nome do arquivo contém indicações de que é um livro
+                    
+                    // Adiciona pontos com base na proporção de palavras-chave encontradas
+                    confidence += (keywordsFound * 100.0 / _articleKeywords.Length) * 0.5;
+                    
+                    // Fator 3: Nome do arquivo
                     string fileName = Path.GetFileNameWithoutExtension(filePath).ToLower();
-                    if (fileName.Contains("livro") || fileName.Contains("book") || 
-                        fileName.StartsWith("livro - ") || fileName.Contains("ebook"))
+                    if (fileName.Contains("artigo") || fileName.Contains("article"))
                     {
-                        return true;
-                    }
-
-                    // Se o documento tiver muitas páginas, provavelmente é um e-book
-                    if (document.GetNumberOfPages() > 30)
-                    {
-                        return true;
+                        confidence += 30;
                     }
                 }
-
-                return false;
+                
+                return Math.Clamp(confidence, 0, 100);
             }
             catch (Exception ex)
             {
-                Console.WriteLine($"Erro ao verificar se o PDF é um e-book: {ex.Message}");
-                return false;
+                Console.WriteLine($"Erro ao calcular confiança de artigo: {ex.Message}");
+                return 0;
             }
         }
         
@@ -224,44 +320,83 @@ namespace bot_fileorganizer.Services
         /// <returns>True se for um artigo, False caso contrário</returns>
         public bool IsArticle(string filePath)
         {
+            return CalculateArticleConfidence(filePath) >= 40; // Limiar de confiança para considerar como artigo
+        }
+        
+        /// <summary>
+        /// Calcula o percentual de confiança de que um arquivo PDF é um paper científico
+        /// </summary>
+        /// <param name="filePath">Caminho do arquivo PDF</param>
+        /// <returns>Percentual de confiança (0-100%)</returns>
+        public double CalculateScientificPaperConfidence(string filePath)
+        {
             try
             {
+                double confidence = 0;
+                
                 using (PdfReader reader = new PdfReader(filePath))
                 using (PdfDocument document = new PdfDocument(reader))
                 {
-                    // Artigos geralmente têm poucas páginas
+                    // Fator 1: Número de páginas
                     int pageCount = document.GetNumberOfPages();
-                    if (pageCount > 30)
+                    if (pageCount < 3 || pageCount > 50)
                     {
-                        return false;
+                        confidence -= 20; // Penalidade para documentos muito curtos ou muito longos
                     }
-
-                    // Extrai texto das primeiras páginas para buscar palavras-chave
-                    string text = ExtractTextFromPages(document, 1, Math.Min(pageCount, 3));
+                    else if (pageCount >= 5 && pageCount <= 30)
+                    {
+                        confidence += 15; // Bônus para documentos de tamanho típico de papers
+                    }
                     
-                    // Verifica se o texto contém palavras-chave que indicam que é um artigo
-                    foreach (string keyword in _articleKeywords)
+                    // Fator 2: Palavras-chave encontradas
+                    string text = ExtractTextFromPages(document, 1, Math.Min(pageCount, 5));
+                    int keywordsFound = 0;
+                    
+                    foreach (string keyword in _scientificPaperKeywords)
                     {
                         if (text.Contains(keyword, StringComparison.OrdinalIgnoreCase))
                         {
-                            return true;
+                            keywordsFound++;
                         }
                     }
-
-                    // Verifica se o nome do arquivo contém indicações de que é um artigo
-                    string fileName = Path.GetFileNameWithoutExtension(filePath).ToLower();
-                    if (fileName.Contains("artigo") || fileName.Contains("article"))
+                    
+                    // Adiciona pontos com base na proporção de palavras-chave encontradas
+                    confidence += (keywordsFound * 100.0 / _scientificPaperKeywords.Length) * 0.4;
+                    
+                    // Fator 3: Estrutura típica de papers científicos
+                    if (text.Contains("abstract", StringComparison.OrdinalIgnoreCase))
                     {
-                        return true;
+                        confidence += 15;
+                    }
+                    if (text.Contains("introduction", StringComparison.OrdinalIgnoreCase))
+                    {
+                        confidence += 10;
+                    }
+                    if (text.Contains("conclusion", StringComparison.OrdinalIgnoreCase))
+                    {
+                        confidence += 10;
+                    }
+                    if (text.Contains("references", StringComparison.OrdinalIgnoreCase) || 
+                        text.Contains("referências", StringComparison.OrdinalIgnoreCase))
+                    {
+                        confidence += 15;
+                    }
+                    
+                    // Fator 4: Nome do arquivo
+                    string fileName = Path.GetFileNameWithoutExtension(filePath).ToLower();
+                    if (fileName.Contains("paper") || fileName.Contains("research") || 
+                        fileName.Contains("study") || fileName.Contains("scientific"))
+                    {
+                        confidence += 20;
                     }
                 }
-
-                return false;
+                
+                return Math.Clamp(confidence, 0, 100);
             }
             catch (Exception ex)
             {
-                Console.WriteLine($"Erro ao verificar se o PDF é um artigo: {ex.Message}");
-                return false;
+                Console.WriteLine($"Erro ao calcular confiança de paper científico: {ex.Message}");
+                return 0;
             }
         }
         
@@ -272,53 +407,74 @@ namespace bot_fileorganizer.Services
         /// <returns>True se for um paper científico, False caso contrário</returns>
         public bool IsScientificPaper(string filePath)
         {
+            return CalculateScientificPaperConfidence(filePath) >= 40; // Limiar de confiança para considerar como paper científico
+        }
+        
+        /// <summary>
+        /// Calcula o percentual de confiança de que um arquivo PDF é um jornal
+        /// </summary>
+        /// <param name="filePath">Caminho do arquivo PDF</param>
+        /// <returns>Percentual de confiança (0-100%)</returns>
+        public double CalculateNewspaperConfidence(string filePath)
+        {
             try
             {
+                double confidence = 0;
+                
                 using (PdfReader reader = new PdfReader(filePath))
                 using (PdfDocument document = new PdfDocument(reader))
                 {
-                    // Papers científicos geralmente têm entre 5 e 30 páginas
+                    // Fator 1: Número de páginas
                     int pageCount = document.GetNumberOfPages();
-                    if (pageCount < 3 || pageCount > 50)
+                    if (pageCount < 4)
                     {
-                        return false;
+                        confidence -= 30; // Penalidade para documentos muito curtos
                     }
-
-                    // Extrai texto das primeiras páginas para buscar palavras-chave
-                    string text = ExtractTextFromPages(document, 1, Math.Min(pageCount, 5));
+                    else if (pageCount >= 8)
+                    {
+                        confidence += 15; // Bônus para documentos mais longos
+                    }
                     
-                    // Verifica se o texto contém palavras-chave que indicam que é um paper científico
-                    foreach (string keyword in _scientificPaperKeywords)
+                    // Fator 2: Palavras-chave encontradas
+                    string text = ExtractTextFromPages(document, 1, Math.Min(pageCount, 3));
+                    int keywordsFound = 0;
+                    
+                    foreach (string keyword in _newspaperKeywords)
                     {
                         if (text.Contains(keyword, StringComparison.OrdinalIgnoreCase))
                         {
-                            return true;
+                            keywordsFound++;
                         }
                     }
-
-                    // Verifica padrões comuns em papers científicos
-                    if (text.Contains("abstract", StringComparison.OrdinalIgnoreCase) && 
-                        text.Contains("introduction", StringComparison.OrdinalIgnoreCase) &&
-                        text.Contains("conclusion", StringComparison.OrdinalIgnoreCase))
+                    
+                    // Adiciona pontos com base na proporção de palavras-chave encontradas
+                    confidence += (keywordsFound * 100.0 / _newspaperKeywords.Length) * 0.4;
+                    
+                    // Fator 3: Padrões de data típicos de jornais
+                    if (Regex.IsMatch(text, @"\b\d{1,2}\s+de\s+[a-zA-Z]+\s+de\s+\d{4}\b")) // Data em português
                     {
-                        return true;
+                        confidence += 25;
                     }
-
-                    // Verifica se o nome do arquivo contém indicações de que é um paper científico
-                    string fileName = Path.GetFileNameWithoutExtension(filePath).ToLower();
-                    if (fileName.Contains("paper") || fileName.Contains("research") || 
-                        fileName.Contains("study") || fileName.Contains("scientific"))
+                    if (Regex.IsMatch(text, @"\b[a-zA-Z]+\s+\d{1,2},\s+\d{4}\b")) // Data em inglês
                     {
-                        return true;
+                        confidence += 25;
+                    }
+                    
+                    // Fator 4: Nome do arquivo
+                    string fileName = Path.GetFileNameWithoutExtension(filePath).ToLower();
+                    if (fileName.Contains("jornal") || fileName.Contains("newspaper") || 
+                        fileName.Contains("gazette") || fileName.Contains("daily"))
+                    {
+                        confidence += 30;
                     }
                 }
-
-                return false;
+                
+                return Math.Clamp(confidence, 0, 100);
             }
             catch (Exception ex)
             {
-                Console.WriteLine($"Erro ao verificar se o PDF é um paper científico: {ex.Message}");
-                return false;
+                Console.WriteLine($"Erro ao calcular confiança de jornal: {ex.Message}");
+                return 0;
             }
         }
         
@@ -329,52 +485,78 @@ namespace bot_fileorganizer.Services
         /// <returns>True se for um jornal, False caso contrário</returns>
         public bool IsNewspaper(string filePath)
         {
+            return CalculateNewspaperConfidence(filePath) >= 40; // Limiar de confiança para considerar como jornal
+        }
+        
+        /// <summary>
+        /// Calcula o percentual de confiança de que um arquivo PDF é uma revista
+        /// </summary>
+        /// <param name="filePath">Caminho do arquivo PDF</param>
+        /// <returns>Percentual de confiança (0-100%)</returns>
+        public double CalculateMagazineConfidence(string filePath)
+        {
             try
             {
+                double confidence = 0;
+                
                 using (PdfReader reader = new PdfReader(filePath))
                 using (PdfDocument document = new PdfDocument(reader))
                 {
-                    // Jornais geralmente têm muitas páginas
+                    // Fator 1: Número de páginas
                     int pageCount = document.GetNumberOfPages();
-                    if (pageCount < 4)
+                    if (pageCount < 10 || pageCount > 300)
                     {
-                        return false;
+                        confidence -= 20; // Penalidade para documentos fora do intervalo típico
                     }
-
-                    // Extrai texto das primeiras páginas para buscar palavras-chave
-                    string text = ExtractTextFromPages(document, 1, Math.Min(pageCount, 3));
+                    else if (pageCount >= 20 && pageCount <= 200)
+                    {
+                        confidence += 20; // Bônus para documentos de tamanho típico de revistas
+                    }
                     
-                    // Verifica se o texto contém palavras-chave que indicam que é um jornal
-                    foreach (string keyword in _newspaperKeywords)
+                    // Fator 2: Palavras-chave encontradas
+                    string text = ExtractTextFromPages(document, 1, Math.Min(pageCount, 5));
+                    int keywordsFound = 0;
+                    
+                    foreach (string keyword in _magazineKeywords)
                     {
                         if (text.Contains(keyword, StringComparison.OrdinalIgnoreCase))
                         {
-                            return true;
+                            keywordsFound++;
                         }
                     }
-
-                    // Verifica padrões comuns em jornais como datas no formato de jornal
-                    if (Regex.IsMatch(text, @"\b\d{1,2}\s+de\s+[a-zA-Z]+\s+de\s+\d{4}\b") || // Data em português
-                        Regex.IsMatch(text, @"\b[a-zA-Z]+\s+\d{1,2},\s+\d{4}\b")) // Data em inglês
+                    
+                    // Adiciona pontos com base na proporção de palavras-chave encontradas
+                    confidence += (keywordsFound * 100.0 / _magazineKeywords.Length) * 0.4;
+                    
+                    // Fator 3: Padrões específicos de revistas
+                    if (Regex.IsMatch(text, @"vol\.\s*\d+", RegexOptions.IgnoreCase))
                     {
-                        return true;
+                        confidence += 15;
                     }
-
-                    // Verifica se o nome do arquivo contém indicações de que é um jornal
-                    string fileName = Path.GetFileNameWithoutExtension(filePath).ToLower();
-                    if (fileName.Contains("jornal") || fileName.Contains("newspaper") || 
-                        fileName.Contains("gazette") || fileName.Contains("daily"))
+                    if (Regex.IsMatch(text, @"issue\s*\d+", RegexOptions.IgnoreCase))
                     {
-                        return true;
+                        confidence += 15;
+                    }
+                    if (Regex.IsMatch(text, @"no\.\s*\d+", RegexOptions.IgnoreCase))
+                    {
+                        confidence += 15;
+                    }
+                    
+                    // Fator 4: Nome do arquivo
+                    string fileName = Path.GetFileNameWithoutExtension(filePath).ToLower();
+                    if (fileName.Contains("magazine") || fileName.Contains("revista") || 
+                        fileName.Contains("time") || fileName.Contains("veja"))
+                    {
+                        confidence += 25;
                     }
                 }
-
-                return false;
+                
+                return Math.Clamp(confidence, 0, 100);
             }
             catch (Exception ex)
             {
-                Console.WriteLine($"Erro ao verificar se o PDF é um jornal: {ex.Message}");
-                return false;
+                Console.WriteLine($"Erro ao calcular confiança de revista: {ex.Message}");
+                return 0;
             }
         }
         
@@ -385,69 +567,59 @@ namespace bot_fileorganizer.Services
         /// <returns>True se for uma revista, False caso contrário</returns>
         public bool IsMagazine(string filePath)
         {
-            try
-            {
-                using (PdfReader reader = new PdfReader(filePath))
-                using (PdfDocument document = new PdfDocument(reader))
-                {
-                    // Revistas geralmente têm entre 20 e 200 páginas
-                    int pageCount = document.GetNumberOfPages();
-                    if (pageCount < 10 || pageCount > 300)
-                    {
-                        return false;
-                    }
-
-                    // Extrai texto das primeiras páginas para buscar palavras-chave
-                    string text = ExtractTextFromPages(document, 1, Math.Min(pageCount, 5));
-                    
-                    // Verifica se o texto contém palavras-chave que indicam que é uma revista
-                    foreach (string keyword in _magazineKeywords)
-                    {
-                        if (text.Contains(keyword, StringComparison.OrdinalIgnoreCase))
-                        {
-                            return true;
-                        }
-                    }
-
-                    // Verifica padrões específicos de revistas como "Vol. X, No. Y" ou "Issue Z"
-                    if (Regex.IsMatch(text, @"vol\.\s*\d+", RegexOptions.IgnoreCase) ||
-                        Regex.IsMatch(text, @"issue\s*\d+", RegexOptions.IgnoreCase) ||
-                        Regex.IsMatch(text, @"no\.\s*\d+", RegexOptions.IgnoreCase))
-                    {
-                        return true;
-                    }
-
-                    // Verifica se o nome do arquivo contém indicações de que é uma revista
-                    string fileName = Path.GetFileNameWithoutExtension(filePath).ToLower();
-                    if (fileName.Contains("magazine") || fileName.Contains("revista") || 
-                        fileName.Contains("time") || fileName.Contains("veja"))
-                    {
-                        return true;
-                    }
-                }
-
-                return false;
-            }
-            catch (Exception ex)
-            {
-                Console.WriteLine($"Erro ao verificar se o PDF é uma revista: {ex.Message}");
-                return false;
-            }
+            return CalculateMagazineConfidence(filePath) >= 40; // Limiar de confiança para considerar como revista
         }
         
         /// <summary>
-        /// Identifica o tipo de documento PDF
+        /// Calcula o percentual de confiança para documento genérico
+        /// </summary>
+        /// <param name="filePath">Caminho do arquivo PDF</param>
+        /// <returns>Percentual de confiança (0-100%)</returns>
+        public double CalculateGenericDocumentConfidence(string filePath)
+        {
+            // Para documentos genéricos, atribuímos uma confiança base baixa
+            return 10;
+        }
+        
+        /// <summary>
+        /// Identifica o tipo de documento PDF com percentual de confiança
+        /// </summary>
+        /// <param name="filePath">Caminho do arquivo PDF</param>
+        /// <returns>Resultado contendo o tipo de documento e o percentual de confiança</returns>
+        public DocumentTypeResult IdentifyDocumentTypeWithConfidence(string filePath)
+        {
+            var confidences = GetDocumentTypeConfidences(filePath);
+            return confidences.OrderByDescending(c => c.Confidence).First();
+        }
+        
+        /// <summary>
+        /// Obtém todos os tipos de documento possíveis com seus percentuais de confiança
+        /// </summary>
+        /// <param name="filePath">Caminho do arquivo PDF</param>
+        /// <returns>Lista de resultados com tipos e percentuais de confiança</returns>
+        public List<DocumentTypeResult> GetDocumentTypeConfidences(string filePath)
+        {
+            var results = new List<DocumentTypeResult>
+            {
+                new DocumentTypeResult("E-book", CalculateEbookConfidence(filePath)),
+                new DocumentTypeResult("Revista", CalculateMagazineConfidence(filePath)),
+                new DocumentTypeResult("Artigo", CalculateArticleConfidence(filePath)),
+                new DocumentTypeResult("Paper Científico", CalculateScientificPaperConfidence(filePath)),
+                new DocumentTypeResult("Jornal", CalculateNewspaperConfidence(filePath)),
+                new DocumentTypeResult("Documento PDF", CalculateGenericDocumentConfidence(filePath))
+            };
+            
+            return results;
+        }
+        
+        /// <summary>
+        /// Identifica o tipo de documento PDF (método de compatibilidade)
         /// </summary>
         /// <param name="filePath">Caminho do arquivo PDF</param>
         /// <returns>Tipo de documento identificado</returns>
         public string IdentifyDocumentType(string filePath)
         {
-            if (IsEbook(filePath)) return "E-book";
-            if (IsMagazine(filePath)) return "Revista";
-            if (IsArticle(filePath)) return "Artigo";
-            if (IsScientificPaper(filePath)) return "Paper Científico";
-            if (IsNewspaper(filePath)) return "Jornal";
-            return "Documento PDF";
+            return IdentifyDocumentTypeWithConfidence(filePath).DocumentType;
         }
 
         /// <summary>
