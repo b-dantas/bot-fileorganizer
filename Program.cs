@@ -382,7 +382,7 @@ namespace bot_fileorganizer
             }
 
             Console.WriteLine($"\nForam encontrados {arquivosPadronizados.Count} arquivos padronizados.");
-            Console.WriteLine("\nDeseja atualizar os metadados desses arquivos? (S/N)");
+            Console.WriteLine("\nDeseja atualizar os metadados destes arquivos? (S/N)");
             string? resposta = Console.ReadLine();
 
             if (resposta?.Trim().ToUpper() != "S")
@@ -393,52 +393,71 @@ namespace bot_fileorganizer
                 return;
             }
 
-            // Processa os arquivos em lotes
-            int totalArquivos = arquivosPadronizados.Count;
-            int arquivoAtual = 0;
             int arquivosAtualizados = 0;
             int arquivosComErro = 0;
+            int arquivosRejeitados = 0;
+            int totalArquivos = arquivosPadronizados.Count;
+            int arquivoAtual = 0;
 
+            // Processa cada arquivo individualmente
             foreach (var arquivo in arquivosPadronizados)
             {
+                arquivoAtual++;
+                
                 Console.Clear();
                 Console.WriteLine("=================================================");
-                Console.WriteLine($"            PROCESSANDO ARQUIVO {arquivoAtual + 1} DE {totalArquivos}           ");
+                Console.WriteLine("            ATUALIZAÇÃO DE METADADOS             ");
                 Console.WriteLine("=================================================");
-
-                // Processa o arquivo
+                Console.WriteLine($"\nProcessando arquivo {arquivoAtual} de {totalArquivos}");
+                
                 string nomeArquivo = Path.GetFileName(arquivo);
                 var (autor, titulo) = _fileOrganizerService.ExtractInfoFromFileName(arquivo);
+                var pdfAnalyzer = new PdfAnalyzer();
                 
-                Console.WriteLine($"\nAtualizando metadados de: {nomeArquivo}");
-                Console.WriteLine($"Autor: {autor}");
-                Console.WriteLine($"Título: {titulo}");
+                Console.WriteLine($"\nArquivo: {nomeArquivo}");
+                Console.WriteLine($"Tipo de documento: {pdfAnalyzer.IdentifyDocumentType(arquivo)}");
+                Console.WriteLine($"Autor atual: {pdfAnalyzer.ExtractAuthor(arquivo) ?? "Não disponível"}");
+                Console.WriteLine($"Título atual: {pdfAnalyzer.ExtractTitle(arquivo) ?? "Não disponível"}");
+                Console.WriteLine($"Novo autor proposto: {autor}");
+                Console.WriteLine($"Novo título proposto: {titulo}");
                 
-                bool sucesso = _fileOrganizerService.UpdateFileMetadata(arquivo);
+                Console.WriteLine("\nDeseja atualizar os metadados deste arquivo? (S/N)");
+                string? respostaIndividual = Console.ReadLine();
                 
-                if (sucesso)
+                if (respostaIndividual?.Trim().ToUpper() == "S")
                 {
-                    Console.WriteLine("Metadados atualizados com sucesso!");
-                    arquivosAtualizados++;
+                    bool sucesso = _fileOrganizerService.UpdateFileMetadata(arquivo);
+                    
+                    if (sucesso)
+                    {
+                        Console.WriteLine("\nMetadados atualizados com sucesso!");
+                        arquivosAtualizados++;
+                    }
+                    else
+                    {
+                        Console.WriteLine("\nErro ao atualizar metadados.");
+                        arquivosComErro++;
+                    }
                 }
                 else
                 {
-                    Console.WriteLine("Erro ao atualizar metadados.");
-                    arquivosComErro++;
+                    Console.WriteLine("\nOperação ignorada pelo usuário.");
+                    // Registrar que o usuário optou por não atualizar este arquivo
+                    _fileOrganizerService.RejectMetadataUpdate(arquivo);
+                    arquivosRejeitados++;
                 }
                 
-                // Pausa breve para o usuário ver o resultado
-                Thread.Sleep(1500);                
-
-                arquivoAtual++;                
+                Console.WriteLine("\nPressione qualquer tecla para continuar...");
+                Console.ReadKey();
             }
 
             Console.Clear();
             Console.WriteLine("=================================================");
             Console.WriteLine("              RESUMO DA OPERAÇÃO                 ");
             Console.WriteLine("=================================================");
-            Console.WriteLine($"\nTotal de arquivos processados: {arquivosAtualizados + arquivosComErro}");
+            Console.WriteLine($"\nTotal de arquivos processados: {arquivosAtualizados + arquivosComErro + arquivosRejeitados}");
             Console.WriteLine($"Arquivos atualizados com sucesso: {arquivosAtualizados}");
+            Console.WriteLine($"Arquivos rejeitados pelo usuário: {arquivosRejeitados}");
             Console.WriteLine($"Arquivos com erro: {arquivosComErro}");
             Console.WriteLine("\nProcessamento concluído!");
             Console.WriteLine("\nPressione qualquer tecla para continuar...");

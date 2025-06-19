@@ -128,3 +128,59 @@ Foi implementada uma melhoria no método de atualização de metadados:
    - Ao final, é exibido um resumo da operação com o número de arquivos atualizados com sucesso e com erro
 
 O bot agora está ainda mais completo, permitindo não apenas padronizar os nomes dos arquivos, mas também garantir que os metadados internos dos PDFs estejam consistentes com os nomes dos arquivos, facilitando a organização e a busca em leitores de PDF.
+
+## Atualização (19/06/2025) - Expansão da Identificação de Tipos de Documentos
+
+Foi implementada uma expansão na funcionalidade de identificação de tipos de documentos:
+
+1. **Problema Identificado**:
+   - O sistema apenas identificava se um arquivo PDF era um e-book ou não
+   - Não havia diferenciação entre outros tipos de documentos como revistas, artigos, papers científicos ou jornais
+
+2. **Solução Implementada**:
+   - Adicionados novos métodos para identificar diferentes tipos de documentos:
+     - `IsArticle`: Identifica se um PDF é um artigo
+     - `IsScientificPaper`: Identifica se um PDF é um paper científico
+     - `IsNewspaper`: Identifica se um PDF é um jornal
+     - `IsMagazine`: Identifica se um PDF é uma revista (incluindo revistas como Time Magazine)
+   - Adicionado método `IdentifyDocumentType` que retorna o tipo de documento identificado
+   - Atualizado o modelo `FileRecord` para incluir o tipo de documento
+   - Atualizada a interface do usuário para exibir o tipo de documento durante o processamento
+
+3. **Melhorias na Confirmação do Usuário**:
+   - Implementada confirmação individual para cada operação de atualização de metadados
+   - O usuário agora pode ver o tipo de documento e os metadados atuais antes de confirmar a atualização
+   - Adicionada persistência das rejeições de atualização de metadados para não ofertar novamente os arquivos rejeitados
+   - Melhorado o resumo da operação para incluir o número de arquivos rejeitados pelo usuário
+
+4. **Heurísticas de Identificação**:
+   - Implementadas heurísticas específicas para cada tipo de documento, baseadas em:
+     - Número de páginas típico para cada tipo de documento
+     - Palavras-chave específicas em diferentes idiomas
+     - Padrões de formatação comuns (como datas em jornais ou referências em papers)
+     - Análise do nome do arquivo
+
+Estas melhorias tornam o bot mais preciso na identificação de diferentes tipos de documentos PDF, permitindo uma melhor organização e categorização dos arquivos. Além disso, o usuário agora tem mais controle sobre o processo de atualização de metadados, podendo tomar decisões informadas para cada arquivo individualmente.
+
+## Atualização (19/06/2025) - Simplificação do Método de Atualização de Metadados
+
+Foi implementada uma simplificação no método de atualização de metadados:
+
+1. **Problema Identificado**:
+   - O método `AtualizarMetadados` processava os arquivos em lotes, adicionando complexidade desnecessária ao fluxo
+   - A lógica de divisão em lotes tornava a interface menos intuitiva para o usuário
+
+2. **Solução Implementada**:
+   - Removido o processamento em lotes do método `AtualizarMetadados`
+   - Simplificado o fluxo para processar todos os arquivos padronizados em uma única sequência
+   - Mantida a confirmação individual para cada arquivo
+   - Substituída a pergunta "Deseja processar os arquivos em lotes?" por "Deseja atualizar os metadados destes arquivos?"
+   - Eliminada a lógica de controle de lotes (totalLotes, loteAtual, etc.)
+
+3. **Benefícios da Alteração**:
+   - Código mais simples e direto
+   - Fluxo mais intuitivo para o usuário
+   - Mesma funcionalidade com menos complexidade
+   - Melhor experiência do usuário com menos perguntas e decisões
+
+Esta simplificação mantém todas as funcionalidades importantes, como a confirmação individual para cada arquivo, a exibição do tipo de documento e metadados atuais, e o registro de rejeições, mas torna o processo mais direto e fácil de entender para o usuário.

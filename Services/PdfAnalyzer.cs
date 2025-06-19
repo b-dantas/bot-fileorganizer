@@ -1,6 +1,7 @@
 using iText.Kernel.Pdf;
 using iText.Kernel.Pdf.Canvas.Parser;
 using iText.Kernel.Pdf.Canvas.Parser.Listener;
+using System.Text.RegularExpressions;
 
 namespace bot_fileorganizer.Services
 {
@@ -14,6 +15,30 @@ namespace bot_fileorganizer.Services
             "livro", "book", "capítulo", "chapter", "autor", "author",
             "editora", "publisher", "isbn", "edição", "edition",
             "copyright", "todos os direitos reservados", "all rights reserved"
+        };
+        
+        // Palavras-chave que indicam que um documento é um artigo
+        private readonly string[] _articleKeywords = new[] {
+            "artigo", "article", "revista", "magazine", "journal", "publicação", "publication"
+        };
+
+        // Palavras-chave que indicam que um documento é um paper científico
+        private readonly string[] _scientificPaperKeywords = new[] {
+            "paper", "research", "pesquisa", "abstract", "resumo", "methodology", "metodologia",
+            "conclusion", "conclusão", "references", "referências", "doi", "peer-reviewed"
+        };
+
+        // Palavras-chave que indicam que um documento é um jornal
+        private readonly string[] _newspaperKeywords = new[] {
+            "jornal", "newspaper", "notícia", "news", "reportagem", "report", "editorial",
+            "manchete", "headline", "daily", "diário", "weekly", "semanal"
+        };
+        
+        // Palavras-chave que indicam que um documento é uma revista
+        private readonly string[] _magazineKeywords = new[] {
+            "revista", "magazine", "time", "veja", "newsweek", "edition", "edição",
+            "volume", "issue", "número", "mensal", "monthly", "semanal", "weekly",
+            "editorial", "editor", "coluna", "column", "feature", "reportagem"
         };
 
         /// <summary>
@@ -190,6 +215,239 @@ namespace bot_fileorganizer.Services
                 Console.WriteLine($"Erro ao verificar se o PDF é um e-book: {ex.Message}");
                 return false;
             }
+        }
+        
+        /// <summary>
+        /// Verifica se um arquivo PDF é um artigo
+        /// </summary>
+        /// <param name="filePath">Caminho do arquivo PDF</param>
+        /// <returns>True se for um artigo, False caso contrário</returns>
+        public bool IsArticle(string filePath)
+        {
+            try
+            {
+                using (PdfReader reader = new PdfReader(filePath))
+                using (PdfDocument document = new PdfDocument(reader))
+                {
+                    // Artigos geralmente têm poucas páginas
+                    int pageCount = document.GetNumberOfPages();
+                    if (pageCount > 30)
+                    {
+                        return false;
+                    }
+
+                    // Extrai texto das primeiras páginas para buscar palavras-chave
+                    string text = ExtractTextFromPages(document, 1, Math.Min(pageCount, 3));
+                    
+                    // Verifica se o texto contém palavras-chave que indicam que é um artigo
+                    foreach (string keyword in _articleKeywords)
+                    {
+                        if (text.Contains(keyword, StringComparison.OrdinalIgnoreCase))
+                        {
+                            return true;
+                        }
+                    }
+
+                    // Verifica se o nome do arquivo contém indicações de que é um artigo
+                    string fileName = Path.GetFileNameWithoutExtension(filePath).ToLower();
+                    if (fileName.Contains("artigo") || fileName.Contains("article"))
+                    {
+                        return true;
+                    }
+                }
+
+                return false;
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"Erro ao verificar se o PDF é um artigo: {ex.Message}");
+                return false;
+            }
+        }
+        
+        /// <summary>
+        /// Verifica se um arquivo PDF é um paper científico
+        /// </summary>
+        /// <param name="filePath">Caminho do arquivo PDF</param>
+        /// <returns>True se for um paper científico, False caso contrário</returns>
+        public bool IsScientificPaper(string filePath)
+        {
+            try
+            {
+                using (PdfReader reader = new PdfReader(filePath))
+                using (PdfDocument document = new PdfDocument(reader))
+                {
+                    // Papers científicos geralmente têm entre 5 e 30 páginas
+                    int pageCount = document.GetNumberOfPages();
+                    if (pageCount < 3 || pageCount > 50)
+                    {
+                        return false;
+                    }
+
+                    // Extrai texto das primeiras páginas para buscar palavras-chave
+                    string text = ExtractTextFromPages(document, 1, Math.Min(pageCount, 5));
+                    
+                    // Verifica se o texto contém palavras-chave que indicam que é um paper científico
+                    foreach (string keyword in _scientificPaperKeywords)
+                    {
+                        if (text.Contains(keyword, StringComparison.OrdinalIgnoreCase))
+                        {
+                            return true;
+                        }
+                    }
+
+                    // Verifica padrões comuns em papers científicos
+                    if (text.Contains("abstract", StringComparison.OrdinalIgnoreCase) && 
+                        text.Contains("introduction", StringComparison.OrdinalIgnoreCase) &&
+                        text.Contains("conclusion", StringComparison.OrdinalIgnoreCase))
+                    {
+                        return true;
+                    }
+
+                    // Verifica se o nome do arquivo contém indicações de que é um paper científico
+                    string fileName = Path.GetFileNameWithoutExtension(filePath).ToLower();
+                    if (fileName.Contains("paper") || fileName.Contains("research") || 
+                        fileName.Contains("study") || fileName.Contains("scientific"))
+                    {
+                        return true;
+                    }
+                }
+
+                return false;
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"Erro ao verificar se o PDF é um paper científico: {ex.Message}");
+                return false;
+            }
+        }
+        
+        /// <summary>
+        /// Verifica se um arquivo PDF é um jornal
+        /// </summary>
+        /// <param name="filePath">Caminho do arquivo PDF</param>
+        /// <returns>True se for um jornal, False caso contrário</returns>
+        public bool IsNewspaper(string filePath)
+        {
+            try
+            {
+                using (PdfReader reader = new PdfReader(filePath))
+                using (PdfDocument document = new PdfDocument(reader))
+                {
+                    // Jornais geralmente têm muitas páginas
+                    int pageCount = document.GetNumberOfPages();
+                    if (pageCount < 4)
+                    {
+                        return false;
+                    }
+
+                    // Extrai texto das primeiras páginas para buscar palavras-chave
+                    string text = ExtractTextFromPages(document, 1, Math.Min(pageCount, 3));
+                    
+                    // Verifica se o texto contém palavras-chave que indicam que é um jornal
+                    foreach (string keyword in _newspaperKeywords)
+                    {
+                        if (text.Contains(keyword, StringComparison.OrdinalIgnoreCase))
+                        {
+                            return true;
+                        }
+                    }
+
+                    // Verifica padrões comuns em jornais como datas no formato de jornal
+                    if (Regex.IsMatch(text, @"\b\d{1,2}\s+de\s+[a-zA-Z]+\s+de\s+\d{4}\b") || // Data em português
+                        Regex.IsMatch(text, @"\b[a-zA-Z]+\s+\d{1,2},\s+\d{4}\b")) // Data em inglês
+                    {
+                        return true;
+                    }
+
+                    // Verifica se o nome do arquivo contém indicações de que é um jornal
+                    string fileName = Path.GetFileNameWithoutExtension(filePath).ToLower();
+                    if (fileName.Contains("jornal") || fileName.Contains("newspaper") || 
+                        fileName.Contains("gazette") || fileName.Contains("daily"))
+                    {
+                        return true;
+                    }
+                }
+
+                return false;
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"Erro ao verificar se o PDF é um jornal: {ex.Message}");
+                return false;
+            }
+        }
+        
+        /// <summary>
+        /// Verifica se um arquivo PDF é uma revista
+        /// </summary>
+        /// <param name="filePath">Caminho do arquivo PDF</param>
+        /// <returns>True se for uma revista, False caso contrário</returns>
+        public bool IsMagazine(string filePath)
+        {
+            try
+            {
+                using (PdfReader reader = new PdfReader(filePath))
+                using (PdfDocument document = new PdfDocument(reader))
+                {
+                    // Revistas geralmente têm entre 20 e 200 páginas
+                    int pageCount = document.GetNumberOfPages();
+                    if (pageCount < 10 || pageCount > 300)
+                    {
+                        return false;
+                    }
+
+                    // Extrai texto das primeiras páginas para buscar palavras-chave
+                    string text = ExtractTextFromPages(document, 1, Math.Min(pageCount, 5));
+                    
+                    // Verifica se o texto contém palavras-chave que indicam que é uma revista
+                    foreach (string keyword in _magazineKeywords)
+                    {
+                        if (text.Contains(keyword, StringComparison.OrdinalIgnoreCase))
+                        {
+                            return true;
+                        }
+                    }
+
+                    // Verifica padrões específicos de revistas como "Vol. X, No. Y" ou "Issue Z"
+                    if (Regex.IsMatch(text, @"vol\.\s*\d+", RegexOptions.IgnoreCase) ||
+                        Regex.IsMatch(text, @"issue\s*\d+", RegexOptions.IgnoreCase) ||
+                        Regex.IsMatch(text, @"no\.\s*\d+", RegexOptions.IgnoreCase))
+                    {
+                        return true;
+                    }
+
+                    // Verifica se o nome do arquivo contém indicações de que é uma revista
+                    string fileName = Path.GetFileNameWithoutExtension(filePath).ToLower();
+                    if (fileName.Contains("magazine") || fileName.Contains("revista") || 
+                        fileName.Contains("time") || fileName.Contains("veja"))
+                    {
+                        return true;
+                    }
+                }
+
+                return false;
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"Erro ao verificar se o PDF é uma revista: {ex.Message}");
+                return false;
+            }
+        }
+        
+        /// <summary>
+        /// Identifica o tipo de documento PDF
+        /// </summary>
+        /// <param name="filePath">Caminho do arquivo PDF</param>
+        /// <returns>Tipo de documento identificado</returns>
+        public string IdentifyDocumentType(string filePath)
+        {
+            if (IsEbook(filePath)) return "E-book";
+            if (IsMagazine(filePath)) return "Revista";
+            if (IsArticle(filePath)) return "Artigo";
+            if (IsScientificPaper(filePath)) return "Paper Científico";
+            if (IsNewspaper(filePath)) return "Jornal";
+            return "Documento PDF";
         }
 
         /// <summary>

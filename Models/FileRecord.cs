@@ -49,5 +49,15 @@ namespace bot_fileorganizer.Models
         /// Indica se o arquivo foi identificado como um e-book
         /// </summary>
         public bool IsEbook { get; set; }
+        
+        /// <summary>
+        /// Tipo de documento identificado (E-book, Revista, Artigo, Paper Científico, Jornal, etc.)
+        /// </summary>
+        public string DocumentType { get; set; } = "Documento PDF";
+        
+        /// <summary>
+        /// Indica se a atualização de metadados foi rejeitada pelo usuário
+        /// </summary>
+        public bool MetadataUpdateRejected { get; set; }
     }
 }

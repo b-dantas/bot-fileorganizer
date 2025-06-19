@@ -184,7 +184,9 @@ namespace bot_fileorganizer.Services
                 OperationDate = DateTime.Now,
                 ExtractedTitle = _pdfAnalyzer.ExtractTitle(filePath),
                 ExtractedAuthor = _pdfAnalyzer.ExtractAuthor(filePath),
-                IsEbook = _pdfAnalyzer.IsEbook(filePath)
+                IsEbook = _pdfAnalyzer.IsEbook(filePath),
+                DocumentType = _pdfAnalyzer.IdentifyDocumentType(filePath),
+                MetadataUpdateRejected = false
             };
         }
 
@@ -355,9 +357,15 @@ namespace bot_fileorganizer.Services
         {
             List<string> allPdfFiles = ListPdfFiles();
             
-            // Filtra os arquivos padronizados
+            // Obtém os arquivos que já tiveram atualização de metadados rejeitada
+            var rejectedMetadataUpdates = _repository.GetAllRecords()
+                .Where(r => r.MetadataUpdateRejected)
+                .Select(r => r.FilePath)
+                .ToList();
+            
+            // Filtra os arquivos padronizados e que não tiveram atualização de metadados rejeitada
             return allPdfFiles
-                .Where(file => IsFileNameStandardized(file))
+                .Where(file => IsFileNameStandardized(file) && !rejectedMetadataUpdates.Contains(file))
                 .ToList();
         }
 
@@ -425,7 +433,9 @@ namespace bot_fileorganizer.Services
                         OperationDate = DateTime.Now,
                         ExtractedTitle = title,
                         ExtractedAuthor = author,
-                        IsEbook = _pdfAnalyzer.IsEbook(filePath)
+                        IsEbook = _pdfAnalyzer.IsEbook(filePath),
+                        DocumentType = _pdfAnalyzer.IdentifyDocumentType(filePath),
+                        MetadataUpdateRejected = false
                     };
                     
                     _repository.AddRecord(record);
@@ -436,6 +446,39 @@ namespace bot_fileorganizer.Services
             catch (Exception ex)
             {
                 Console.WriteLine($"Erro ao atualizar metadados: {ex.Message}");
+                return false;
+            }
+        }
+        
+        /// <summary>
+        /// Marca um arquivo como rejeitado para atualização de metadados
+        /// </summary>
+        /// <param name="filePath">Caminho do arquivo</param>
+        /// <returns>True se o arquivo for marcado como rejeitado com sucesso, False caso contrário</returns>
+        public bool RejectMetadataUpdate(string filePath)
+        {
+            try
+            {
+                var record = _repository.GetRecordByPath(filePath);
+                
+                if (record != null)
+                {
+                    record.MetadataUpdateRejected = true;
+                    _repository.UpdateRecord(record);
+                }
+                else
+                {
+                    // Se não existir um registro, cria um novo com a flag de rejeição de metadados
+                    var newRecord = CreateFileRecord(filePath);
+                    newRecord.MetadataUpdateRejected = true;
+                    _repository.AddRecord(newRecord);
+                }
+                
+                return true;
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"Erro ao marcar rejeição de atualização de metadados: {ex.Message}");
                 return false;
             }
         }
