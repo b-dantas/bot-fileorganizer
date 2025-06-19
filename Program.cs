@@ -64,7 +64,7 @@ namespace bot_fileorganizer
         {
             Console.Clear();
             Console.WriteLine("=================================================");
-            Console.WriteLine("      BOT ORGANIZADOR DE ARQUIVOS - v1.1.1       ");
+            Console.WriteLine("      BOT ORGANIZADOR DE ARQUIVOS - v1.1.3       ");
             Console.WriteLine("=================================================");
             Console.WriteLine("\nBem-vindo ao Bot Organizador de Arquivos!");
             Console.WriteLine("Este aplicativo ajuda a padronizar nomes de arquivos PDF.");
@@ -409,7 +409,8 @@ namespace bot_fileorganizer
             Console.WriteLine("3. Artigo");
             Console.WriteLine("4. Paper Científico");
             Console.WriteLine("5. Jornal");
-            Console.WriteLine("6. Outro Documento");
+            Console.WriteLine("6. Apresentação");
+            Console.WriteLine("7. Outro Documento");
             
             resposta = Console.ReadLine();
             
@@ -420,6 +421,7 @@ namespace bot_fileorganizer
                 "3" => "Artigo",
                 "4" => "Paper Científico",
                 "5" => "Jornal",
+                "6" => "Apresentação",
                 _ => "Documento PDF"
             };
         }

@@ -5,6 +5,33 @@ Todas as mudanças notáveis neste projeto serão documentadas neste arquivo.
 O formato é baseado em [Keep a Changelog](https://keepachangelog.com/pt-BR/1.0.0/),
 e este projeto adere ao [Versionamento Semântico](https://semver.org/lang/pt-BR/spec/v2.0.0.html).
 
+## [1.1.3] - 2025-06-19
+
+### Adicionado
+- Sistema avançado de extração de metadados com níveis de confiança
+- Classes auxiliares `MetadataExtractionResult` e `Author` para representar resultados de extração
+- Métodos específicos para extração de título e autor por tipo de documento
+- Detecção de títulos multi-linha com análise de conectores e preposições
+- Suporte para múltiplos autores com detecção de padrões de separação
+- Análise de contexto para melhorar a precisão da extração
+
+### Melhorado
+- Algoritmo de extração de título com heurísticas específicas por tipo de documento
+- Algoritmo de extração de autor com suporte para múltiplos autores
+- Detecção de padrões de autoria em diferentes formatos de documentos
+- Análise de posicionamento de autores em relação ao título e outros elementos
+- Precisão geral da extração de metadados, especialmente em documentos não-ebook
+
+## [1.1.2] - 2025-06-19
+
+### Adicionado
+- Novo tipo de documento: "Apresentação" para detectar slides e apresentações em PDF
+- Palavras-chave específicas para identificação de apresentações
+- Método `CalculatePresentationConfidence` para calcular o percentual de confiança
+- Método `IsPresentation` para verificar se um arquivo é uma apresentação
+- Análise de densidade de texto por página para melhor identificação de slides
+- Detecção de padrões visuais típicos como marcadores e numeração
+
 ## [1.1.1] - 2025-06-19
 
 ### Adicionado
