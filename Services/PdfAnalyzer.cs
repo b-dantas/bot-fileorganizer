@@ -246,5 +246,50 @@ namespace bot_fileorganizer.Services
                 return string.Empty;
             }
         }
+
+        /// <summary>
+        /// Atualiza os metadados de um arquivo PDF
+        /// </summary>
+        /// <param name="filePath">Caminho do arquivo PDF</param>
+        /// <param name="title">Novo título</param>
+        /// <param name="author">Novo autor</param>
+        /// <returns>True se os metadados forem atualizados com sucesso, False caso contrário</returns>
+        public bool UpdateMetadata(string filePath, string title, string author)
+        {
+            try
+            {
+                // Obtém o diretório e o nome do arquivo original
+                string directory = Path.GetDirectoryName(filePath) ?? string.Empty;
+                string fileNameWithoutExt = Path.GetFileNameWithoutExtension(filePath);
+                
+                // Cria um nome para o arquivo atualizado na mesma pasta
+                string updatedFileName = $"{fileNameWithoutExt}_updated.pdf";
+                string updatedFilePath = Path.Combine(directory, updatedFileName);
+                
+                // Abre o arquivo original para leitura e o novo para escrita
+                using (var reader = new PdfReader(filePath))
+                using (var writer = new PdfWriter(updatedFilePath))
+                using (var document = new PdfDocument(reader, writer))
+                {
+                    // Obtém os metadados do documento
+                    var info = document.GetDocumentInfo();
+                    
+                    // Atualiza os metadados
+                    info.SetTitle(title);
+                    info.SetAuthor(author);
+                    
+                    // Fecha o documento para aplicar as alterações
+                    document.Close();
+                }
+                
+                Console.WriteLine($"Arquivo com metadados atualizados salvo como: {updatedFileName}");
+                return true;
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"Erro ao atualizar metadados do PDF: {ex.Message}");
+                return false;
+            }
+        }
     }
 }

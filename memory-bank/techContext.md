@@ -7,11 +7,13 @@ A persistência das alterações realizadas deve estar em um arquivo JSON.
 ## Detalhes Técnicos Atuais
 
 ### Tecnologias Utilizadas
+
 - .NET 9
 - C# 12
 - System.Text.Json para serialização/deserialização JSON
 
 ### Arquitetura
+
 O projeto segue uma arquitetura simples, com separação de responsabilidades:
 
 1. **Camada de Apresentação**:
@@ -30,6 +32,7 @@ O projeto segue uma arquitetura simples, com separação de responsabilidades:
    - `FileRecord`: Representa um registro de arquivo com informações sobre o nome original e o novo nome proposto
 
 ### Fluxo de Dados
+
 1. O usuário seleciona um diretório para análise
 2. O sistema lista os arquivos PDF que não seguem o padrão de nomenclatura
 3. O usuário opta por processar os arquivos
@@ -38,6 +41,7 @@ O projeto segue uma arquitetura simples, com separação de responsabilidades:
 6. As operações são registradas em um arquivo JSON
 
 ### Pendências Técnicas
+
 - Integração com biblioteca de manipulação de PDFs (iTextSharp)
 - Implementação de extração real de metadados de PDFs
 - Aprimoramento das heurísticas para identificação de e-books

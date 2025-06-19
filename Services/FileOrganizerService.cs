@@ -346,5 +346,129 @@ namespace bot_fileorganizer.Services
             var allFiles = ListNonStandardizedFiles();
             return (int)Math.Ceiling((double)allFiles.Count / batchSize);
         }
+
+        /// <summary>
+        /// Lista arquivos PDF que seguem o padrão de nomenclatura
+        /// </summary>
+        /// <returns>Lista de caminhos de arquivos padronizados</returns>
+        public List<string> ListStandardizedFiles()
+        {
+            List<string> allPdfFiles = ListPdfFiles();
+            
+            // Filtra os arquivos padronizados
+            return allPdfFiles
+                .Where(file => IsFileNameStandardized(file))
+                .ToList();
+        }
+
+        /// <summary>
+        /// Extrai título e autor do nome do arquivo
+        /// </summary>
+        /// <param name="filePath">Caminho do arquivo</param>
+        /// <returns>Tupla contendo autor e título</returns>
+        public (string Author, string Title) ExtractInfoFromFileName(string filePath)
+        {
+            string fileName = Path.GetFileNameWithoutExtension(filePath);
+            string[] parts = fileName.Split('-');
+            
+            if (parts.Length >= 3 && parts[0].Trim().Equals("Livro", StringComparison.OrdinalIgnoreCase))
+            {
+                string author = parts[1].Trim();
+                string title = parts[2].Trim();
+                
+                // Se houver mais partes após o título, concatena-as
+                if (parts.Length > 3)
+                {
+                    for (int i = 3; i < parts.Length; i++)
+                    {
+                        title += " - " + parts[i].Trim();
+                    }
+                }
+                
+                return (author, title);
+            }
+            
+            // Se não conseguir extrair, retorna valores vazios
+            return (string.Empty, string.Empty);
+        }
+
+        /// <summary>
+        /// Atualiza os metadados de um arquivo PDF com base no nome do arquivo
+        /// </summary>
+        /// <param name="filePath">Caminho do arquivo</param>
+        /// <returns>True se os metadados forem atualizados com sucesso, False caso contrário</returns>
+        public bool UpdateFileMetadata(string filePath)
+        {
+            try
+            {
+                // Extrai título e autor do nome do arquivo
+                var (author, title) = ExtractInfoFromFileName(filePath);
+                
+                if (string.IsNullOrEmpty(author) || string.IsNullOrEmpty(title))
+                {
+                    return false;
+                }
+                
+                // Atualiza os metadados do arquivo
+                bool success = _pdfAnalyzer.UpdateMetadata(filePath, title, author);
+                
+                if (success)
+                {
+                    // Cria um registro da operação
+                    var record = new FileRecord
+                    {
+                        FilePath = filePath,
+                        OriginalName = Path.GetFileName(filePath),
+                        ProposedName = Path.GetFileName(filePath), // Mesmo nome, pois não estamos renomeando
+                        Accepted = true,
+                        Rejected = false,
+                        OperationDate = DateTime.Now,
+                        ExtractedTitle = title,
+                        ExtractedAuthor = author,
+                        IsEbook = _pdfAnalyzer.IsEbook(filePath)
+                    };
+                    
+                    _repository.AddRecord(record);
+                }
+                
+                return success;
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"Erro ao atualizar metadados: {ex.Message}");
+                return false;
+            }
+        }
+
+        /// <summary>
+        /// Obtém um lote específico de arquivos padronizados
+        /// </summary>
+        /// <param name="batchIndex">Índice do lote (começando em 0)</param>
+        /// <param name="batchSize">Tamanho do lote</param>
+        /// <returns>Lista de caminhos de arquivos do lote</returns>
+        public List<string> GetStandardizedFilesBatch(int batchIndex, int batchSize = DefaultBatchSize)
+        {
+            var allFiles = ListStandardizedFiles();
+            
+            // Verifica se o índice do lote é válido
+            if (batchIndex < 0 || batchIndex >= Math.Ceiling((double)allFiles.Count / batchSize))
+            {
+                return new List<string>();
+            }
+            
+            // Retorna o lote específico
+            return allFiles.Skip(batchIndex * batchSize).Take(batchSize).ToList();
+        }
+
+        /// <summary>
+        /// Obtém o número total de lotes de arquivos padronizados
+        /// </summary>
+        /// <param name="batchSize">Tamanho do lote</param>
+        /// <returns>Número total de lotes</returns>
+        public int GetTotalStandardizedBatches(int batchSize = DefaultBatchSize)
+        {
+            var allFiles = ListStandardizedFiles();
+            return (int)Math.Ceiling((double)allFiles.Count / batchSize);
+        }
     }
 }

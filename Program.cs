@@ -43,6 +43,9 @@ namespace bot_fileorganizer
                     case "4":
                         ExibirHistorico();
                         break;
+                    case "5":
+                        AtualizarMetadados();
+                        break;
                     case "0":
                         _running = false;
                         break;
@@ -61,12 +64,12 @@ namespace bot_fileorganizer
         {
             Console.Clear();
             Console.WriteLine("=================================================");
-            Console.WriteLine("      BOT ORGANIZADOR DE ARQUIVOS - v1.0.0       ");
+            Console.WriteLine("      BOT ORGANIZADOR DE ARQUIVOS - v1.1.1       ");
             Console.WriteLine("=================================================");
             Console.WriteLine("\nBem-vindo ao Bot Organizador de Arquivos!");
             Console.WriteLine("Este aplicativo ajuda a padronizar nomes de arquivos PDF.");
-            Console.WriteLine("\nPressione qualquer tecla para continuar...");
-            Console.ReadKey();
+            //Console.WriteLine("\nPressione qualquer tecla para continuar...");
+            //Console.ReadKey();
         }
 
         static void ExibirMenuPrincipal()
@@ -85,6 +88,7 @@ namespace bot_fileorganizer
             Console.WriteLine("2. Listar arquivos não padronizados");
             Console.WriteLine("3. Processar arquivos");
             Console.WriteLine("4. Exibir histórico de operações");
+            Console.WriteLine("5. Atualizar metadados de arquivos padronizados");
             Console.WriteLine("0. Sair");
             Console.Write("\nOpção: ");
         }
@@ -342,6 +346,101 @@ namespace bot_fileorganizer
                 }
             }
 
+            Console.WriteLine("\nPressione qualquer tecla para continuar...");
+            Console.ReadKey();
+        }
+
+        static void AtualizarMetadados()
+        {
+            if (_fileOrganizerService == null)
+            {
+                return;
+            }
+
+            Console.Clear();
+            Console.WriteLine("=================================================");
+            Console.WriteLine("        ATUALIZAR METADADOS DE ARQUIVOS          ");
+            Console.WriteLine("=================================================");
+
+            string diretorioAtual = _fileOrganizerService.GetCurrentDirectory();
+            if (string.IsNullOrEmpty(diretorioAtual))
+            {
+                Console.WriteLine("\nNenhum diretório selecionado. Selecione um diretório primeiro.");
+                Console.WriteLine("\nPressione qualquer tecla para continuar...");
+                Console.ReadKey();
+                return;
+            }
+
+            var arquivosPadronizados = _fileOrganizerService.ListStandardizedFiles();
+
+            if (arquivosPadronizados.Count == 0)
+            {
+                Console.WriteLine("\nNão foram encontrados arquivos padronizados no diretório.");
+                Console.WriteLine("\nPressione qualquer tecla para continuar...");
+                Console.ReadKey();
+                return;
+            }
+
+            Console.WriteLine($"\nForam encontrados {arquivosPadronizados.Count} arquivos padronizados.");
+            Console.WriteLine("\nDeseja atualizar os metadados desses arquivos? (S/N)");
+            string? resposta = Console.ReadLine();
+
+            if (resposta?.Trim().ToUpper() != "S")
+            {
+                Console.WriteLine("\nOperação cancelada pelo usuário.");
+                Console.WriteLine("\nPressione qualquer tecla para continuar...");
+                Console.ReadKey();
+                return;
+            }
+
+            // Processa os arquivos em lotes
+            int totalArquivos = arquivosPadronizados.Count;
+            int arquivoAtual = 0;
+            int arquivosAtualizados = 0;
+            int arquivosComErro = 0;
+
+            foreach (var arquivo in arquivosPadronizados)
+            {
+                Console.Clear();
+                Console.WriteLine("=================================================");
+                Console.WriteLine($"            PROCESSANDO ARQUIVO {arquivoAtual + 1} DE {totalArquivos}           ");
+                Console.WriteLine("=================================================");
+
+                // Processa o arquivo
+                string nomeArquivo = Path.GetFileName(arquivo);
+                var (autor, titulo) = _fileOrganizerService.ExtractInfoFromFileName(arquivo);
+                
+                Console.WriteLine($"\nAtualizando metadados de: {nomeArquivo}");
+                Console.WriteLine($"Autor: {autor}");
+                Console.WriteLine($"Título: {titulo}");
+                
+                bool sucesso = _fileOrganizerService.UpdateFileMetadata(arquivo);
+                
+                if (sucesso)
+                {
+                    Console.WriteLine("Metadados atualizados com sucesso!");
+                    arquivosAtualizados++;
+                }
+                else
+                {
+                    Console.WriteLine("Erro ao atualizar metadados.");
+                    arquivosComErro++;
+                }
+                
+                // Pausa breve para o usuário ver o resultado
+                Thread.Sleep(1500);                
+
+                arquivoAtual++;                
+            }
+
+            Console.Clear();
+            Console.WriteLine("=================================================");
+            Console.WriteLine("              RESUMO DA OPERAÇÃO                 ");
+            Console.WriteLine("=================================================");
+            Console.WriteLine($"\nTotal de arquivos processados: {arquivosAtualizados + arquivosComErro}");
+            Console.WriteLine($"Arquivos atualizados com sucesso: {arquivosAtualizados}");
+            Console.WriteLine($"Arquivos com erro: {arquivosComErro}");
+            Console.WriteLine("\nProcessamento concluído!");
             Console.WriteLine("\nPressione qualquer tecla para continuar...");
             Console.ReadKey();
         }

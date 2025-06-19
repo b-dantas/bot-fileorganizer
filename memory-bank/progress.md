@@ -72,3 +72,59 @@ Foram implementadas todas as pendências identificadas anteriormente:
    - Adicionadas mensagens de confirmação mais claras para o usuário
 
 O bot agora está mais completo e robusto, atendendo a todos os requisitos iniciais. A extração de metadados de PDFs e a identificação de e-books foram significativamente aprimoradas, proporcionando uma melhor experiência ao usuário.
+
+## Novos Recursos a Serem Implementados
+
+- ~~Nova opção para alterar os metadados, atualizando as informações de título e autor dos arquivos que seguem o padrão de nomenclatura. A extração dessas informações é feita diretamente do nome do arquivo.~~ (Implementado na versão 1.1.1)
+
+## Atualização (19/06/2025) - Versão 1.1.1
+
+Foi implementada a funcionalidade para atualizar os metadados dos arquivos PDF que já seguem o padrão de nomenclatura:
+
+1. **Nova Funcionalidade**:
+   - Adição de uma nova opção no menu principal: "Atualizar metadados de arquivos padronizados"
+   - Implementação da extração de título e autor diretamente do nome do arquivo
+   - Atualização dos metadados internos dos arquivos PDF usando a biblioteca iText7
+   - Processamento em lotes, seguindo o mesmo padrão das outras funcionalidades
+   - Registro das operações no histórico
+
+2. **Alterações Realizadas**:
+   - **PdfAnalyzer.cs**: Adicionado método `UpdateMetadata` para atualizar os metadados de um arquivo PDF
+   - **FileOrganizerService.cs**: Adicionados métodos para listar arquivos padronizados, extrair informações do nome do arquivo e atualizar metadados
+   - **Program.cs**: Adicionada nova opção no menu principal e implementado método `AtualizarMetadados`
+   - Atualização da versão do aplicativo para 1.1.1
+
+## Atualização (19/06/2025) - Correção de Dependência
+
+Foi corrigido um problema de dependência relacionado à biblioteca iText7:
+
+1. **Problema Identificado**:
+   - Erro ao executar o método `UpdateMetadata` devido à falta da dependência do BouncyCastle, necessária para operações criptográficas da biblioteca iText7
+   - Mensagem de erro: `System.NotSupportedException: Either com.itextpdf:bouncy-castle-adapter or com.itextpdf:bouncy-castle-fips-adapter dependency must be added in order to use BouncyCastleFactoryCreator`
+
+2. **Solução Implementada**:
+   - Adicionada a dependência `itext7.bouncy-castle-adapter` versão 9.2.0 ao projeto
+   - Esta dependência é necessária para que a biblioteca iText7 possa realizar operações criptográficas ao manipular arquivos PDF
+
+## Atualização (19/06/2025) - Melhoria na Atualização de Metadados
+
+Foi implementada uma melhoria no método de atualização de metadados:
+
+1. **Problema Identificado**:
+   - O método `UpdateMetadata` excluía o arquivo original antes de substituí-lo pelo arquivo com metadados atualizados
+   - Isso poderia causar perda de dados caso ocorresse algum erro durante o processo
+
+2. **Solução Implementada**:
+   - Modificado o método `UpdateMetadata` para preservar o arquivo original
+   - O arquivo com metadados atualizados agora é salvo na mesma pasta com o sufixo "_updated"
+   - Uma mensagem é exibida informando o nome do novo arquivo criado
+   - Esta abordagem é mais segura, pois mantém o arquivo original intacto
+
+3. **Fluxo da Nova Funcionalidade**:
+   - O usuário seleciona a opção "Atualizar metadados de arquivos padronizados" no menu principal
+   - O sistema lista os arquivos PDF que seguem o padrão de nomenclatura
+   - Os arquivos são processados em lotes de 10
+   - Para cada arquivo, o sistema extrai o título e o autor do nome do arquivo e atualiza os metadados do PDF
+   - Ao final, é exibido um resumo da operação com o número de arquivos atualizados com sucesso e com erro
+
+O bot agora está ainda mais completo, permitindo não apenas padronizar os nomes dos arquivos, mas também garantir que os metadados internos dos PDFs estejam consistentes com os nomes dos arquivos, facilitando a organização e a busca em leitores de PDF.
