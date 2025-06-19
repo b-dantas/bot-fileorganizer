@@ -38,6 +38,6 @@ O projeto segue uma arquitetura simples, com separação de responsabilidades:
 6. As operações são registradas em um arquivo JSON
 
 ### Pendências Técnicas
-- Integração com biblioteca de manipulação de PDFs (iTextSharp ou PdfSharp)
+- Integração com biblioteca de manipulação de PDFs (iTextSharp)
 - Implementação de extração real de metadados de PDFs
 - Aprimoramento das heurísticas para identificação de e-books

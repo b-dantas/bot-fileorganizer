@@ -26,6 +26,11 @@ namespace bot_fileorganizer.Models
         public bool Accepted { get; set; }
         
         /// <summary>
+        /// Indica se a proposta de renomeação foi rejeitada pelo usuário
+        /// </summary>
+        public bool Rejected { get; set; }
+        
+        /// <summary>
         /// Data e hora da operação
         /// </summary>
         public DateTime OperationDate { get; set; }

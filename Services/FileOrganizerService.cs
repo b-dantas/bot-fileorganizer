@@ -10,17 +10,32 @@ namespace bot_fileorganizer.Services
     {
         private readonly FileRepository _repository;
         private readonly PdfAnalyzer _pdfAnalyzer;
+        private readonly AppSettingsRepository _settingsRepository;
         private string _currentDirectory = string.Empty;
+        
+        /// <summary>
+        /// Tamanho padrão do lote para processamento de arquivos
+        /// </summary>
+        public const int DefaultBatchSize = 10;
 
         /// <summary>
         /// Inicializa uma nova instância do serviço de organização de arquivos
         /// </summary>
         /// <param name="repository">Repositório para persistência de dados</param>
         /// <param name="pdfAnalyzer">Analisador de PDFs</param>
-        public FileOrganizerService(FileRepository repository, PdfAnalyzer pdfAnalyzer)
+        /// <param name="settingsRepository">Repositório de configurações</param>
+        public FileOrganizerService(FileRepository repository, PdfAnalyzer pdfAnalyzer, AppSettingsRepository settingsRepository)
         {
             _repository = repository;
             _pdfAnalyzer = pdfAnalyzer;
+            _settingsRepository = settingsRepository;
+            
+            // Carrega o último diretório utilizado, se disponível
+            string lastDirectory = _settingsRepository.GetLastDirectory();
+            if (!string.IsNullOrEmpty(lastDirectory) && Directory.Exists(lastDirectory))
+            {
+                _currentDirectory = lastDirectory;
+            }
         }
 
         /// <summary>
@@ -33,6 +48,10 @@ namespace bot_fileorganizer.Services
             if (Directory.Exists(directoryPath))
             {
                 _currentDirectory = directoryPath;
+                
+                // Salva o diretório nas configurações
+                _settingsRepository.SetLastDirectory(directoryPath);
+                
                 return true;
             }
             return false;
@@ -99,7 +118,17 @@ namespace bot_fileorganizer.Services
         public List<string> ListNonStandardizedFiles()
         {
             List<string> allPdfFiles = ListPdfFiles();
-            return allPdfFiles.Where(file => !IsFileNameStandardized(file)).ToList();
+            
+            // Obtém os arquivos já rejeitados
+            var rejectedFiles = _repository.GetAllRecords()
+                .Where(r => r.Rejected)
+                .Select(r => r.FilePath)
+                .ToList();
+            
+            // Filtra os arquivos não padronizados e que não foram rejeitados
+            return allPdfFiles
+                .Where(file => !IsFileNameStandardized(file) && !rejectedFiles.Contains(file))
+                .ToList();
         }
 
         /// <summary>
@@ -151,6 +180,7 @@ namespace bot_fileorganizer.Services
                 OriginalName = originalName,
                 ProposedName = proposedName,
                 Accepted = false,
+                Rejected = false,
                 OperationDate = DateTime.Now,
                 ExtractedTitle = _pdfAnalyzer.ExtractTitle(filePath),
                 ExtractedAuthor = _pdfAnalyzer.ExtractAuthor(filePath),
@@ -195,8 +225,42 @@ namespace bot_fileorganizer.Services
                 
                 return true;
             }
-            catch
+            catch (Exception ex)
             {
+                Console.WriteLine($"Erro ao renomear arquivo: {ex.Message}");
+                return false;
+            }
+        }
+
+        /// <summary>
+        /// Marca um arquivo como rejeitado
+        /// </summary>
+        /// <param name="filePath">Caminho do arquivo</param>
+        /// <returns>True se o arquivo for marcado como rejeitado com sucesso, False caso contrário</returns>
+        public bool RejectFile(string filePath)
+        {
+            try
+            {
+                var record = _repository.GetRecordByPath(filePath);
+                
+                if (record != null)
+                {
+                    record.Rejected = true;
+                    _repository.UpdateRecord(record);
+                }
+                else
+                {
+                    // Se não existir um registro, cria um novo com a flag de rejeitado
+                    var newRecord = CreateFileRecord(filePath);
+                    newRecord.Rejected = true;
+                    _repository.AddRecord(newRecord);
+                }
+                
+                return true;
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"Erro ao marcar arquivo como rejeitado: {ex.Message}");
                 return false;
             }
         }
@@ -229,6 +293,58 @@ namespace bot_fileorganizer.Services
             
             _repository.AddRecords(records);
             return records;
+        }
+
+        /// <summary>
+        /// Processa arquivos em lotes
+        /// </summary>
+        /// <param name="filePaths">Lista de caminhos de arquivos</param>
+        /// <param name="batchSize">Tamanho do lote</param>
+        /// <returns>Lista de lotes de registros de arquivos</returns>
+        public List<List<FileRecord>> ProcessFilesInBatches(List<string> filePaths, int batchSize = DefaultBatchSize)
+        {
+            var batches = new List<List<FileRecord>>();
+            
+            // Divide os arquivos em lotes
+            for (int i = 0; i < filePaths.Count; i += batchSize)
+            {
+                var batchFiles = filePaths.Skip(i).Take(batchSize).ToList();
+                var batchRecords = ProcessFiles(batchFiles);
+                batches.Add(batchRecords);
+            }
+            
+            return batches;
+        }
+
+        /// <summary>
+        /// Obtém um lote específico de arquivos não padronizados
+        /// </summary>
+        /// <param name="batchIndex">Índice do lote (começando em 0)</param>
+        /// <param name="batchSize">Tamanho do lote</param>
+        /// <returns>Lista de caminhos de arquivos do lote</returns>
+        public List<string> GetNonStandardizedFilesBatch(int batchIndex, int batchSize = DefaultBatchSize)
+        {
+            var allFiles = ListNonStandardizedFiles();
+            
+            // Verifica se o índice do lote é válido
+            if (batchIndex < 0 || batchIndex >= Math.Ceiling((double)allFiles.Count / batchSize))
+            {
+                return new List<string>();
+            }
+            
+            // Retorna o lote específico
+            return allFiles.Skip(batchIndex * batchSize).Take(batchSize).ToList();
+        }
+
+        /// <summary>
+        /// Obtém o número total de lotes de arquivos não padronizados
+        /// </summary>
+        /// <param name="batchSize">Tamanho do lote</param>
+        /// <returns>Número total de lotes</returns>
+        public int GetTotalBatches(int batchSize = DefaultBatchSize)
+        {
+            var allFiles = ListNonStandardizedFiles();
+            return (int)Math.Ceiling((double)allFiles.Count / batchSize);
         }
     }
 }

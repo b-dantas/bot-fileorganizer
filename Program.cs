@@ -16,8 +16,9 @@ namespace bot_fileorganizer
 
             // Inicializa os serviços
             var repository = new FileRepository();
+            var settingsRepository = new AppSettingsRepository();
             var pdfAnalyzer = new PdfAnalyzer();
-            _fileOrganizerService = new FileOrganizerService(repository, pdfAnalyzer);
+            _fileOrganizerService = new FileOrganizerService(repository, pdfAnalyzer, settingsRepository);
 
             // Exibe mensagem de boas-vindas
             ExibirBoasVindas();
@@ -192,7 +193,7 @@ namespace bot_fileorganizer
             }
 
             Console.WriteLine($"\nForam encontrados {arquivosNaoPadronizados.Count} arquivos não padronizados.");
-            Console.WriteLine("\nDeseja processar todos os arquivos? (S/N)");
+            Console.WriteLine("\nDeseja processar os arquivos em lotes? (S/N)");
             string? resposta = Console.ReadLine();
 
             if (resposta?.Trim().ToUpper() != "S")
@@ -203,37 +204,101 @@ namespace bot_fileorganizer
                 return;
             }
 
-            // Processa os arquivos e obtém as propostas de renomeação
-            var registros = _fileOrganizerService.ProcessFiles(arquivosNaoPadronizados);
+            // Processa os arquivos em lotes
+            int totalLotes = _fileOrganizerService.GetTotalBatches();
+            int loteAtual = 0;
 
-            // Exibe as propostas e solicita confirmação para cada uma
-            foreach (var registro in registros)
+            while (loteAtual < totalLotes)
             {
                 Console.Clear();
                 Console.WriteLine("=================================================");
-                Console.WriteLine("            PROPOSTA DE RENOMEAÇÃO               ");
+                Console.WriteLine($"            PROCESSANDO LOTE {loteAtual + 1} DE {totalLotes}           ");
                 Console.WriteLine("=================================================");
-                Console.WriteLine($"\nArquivo original: {registro.OriginalName}");
-                Console.WriteLine($"Novo nome proposto: {registro.ProposedName}");
-                Console.WriteLine("\nAceitar esta proposta? (S/N)");
+
+                // Obtém os arquivos do lote atual
+                var arquivosDoLote = _fileOrganizerService.GetNonStandardizedFilesBatch(loteAtual);
                 
-                resposta = Console.ReadLine();
-                
-                if (resposta?.Trim().ToUpper() == "S")
+                if (arquivosDoLote.Count == 0)
                 {
-                    bool sucesso = _fileOrganizerService.RenameFile(registro.FilePath, registro.ProposedName);
+                    Console.WriteLine("\nNão há mais arquivos para processar.");
+                    break;
+                }
+
+                Console.WriteLine($"\nProcessando {arquivosDoLote.Count} arquivos do lote {loteAtual + 1}:");
+                for (int i = 0; i < arquivosDoLote.Count; i++)
+                {
+                    Console.WriteLine($"{i + 1}. {Path.GetFileName(arquivosDoLote[i])}");
+                }
+
+                Console.WriteLine("\nDeseja processar este lote? (S/N)");
+                resposta = Console.ReadLine();
+
+                if (resposta?.Trim().ToUpper() != "S")
+                {
+                    Console.WriteLine("\nLote ignorado pelo usuário.");
+                    loteAtual++;
+                    continue;
+                }
+
+                // Processa os arquivos do lote e obtém as propostas de renomeação
+                var registros = _fileOrganizerService.ProcessFiles(arquivosDoLote);
+
+                // Exibe as propostas e solicita confirmação para cada uma
+                foreach (var registro in registros)
+                {
+                    Console.Clear();
+                    Console.WriteLine("=================================================");
+                    Console.WriteLine("            PROPOSTA DE RENOMEAÇÃO               ");
+                    Console.WriteLine("=================================================");
+                    Console.WriteLine($"\nArquivo original: {registro.OriginalName}");
+                    Console.WriteLine($"Novo nome proposto: {registro.ProposedName}");
+                    Console.WriteLine("\nAceitar esta proposta? (S/N)");
                     
-                    if (sucesso)
+                    resposta = Console.ReadLine();
+                    
+                    if (resposta?.Trim().ToUpper() == "S")
                     {
-                        Console.WriteLine("\nArquivo renomeado com sucesso!");
+                        bool sucesso = _fileOrganizerService.RenameFile(registro.FilePath, registro.ProposedName);
+                        
+                        if (sucesso)
+                        {
+                            Console.WriteLine("\nArquivo renomeado com sucesso!");
+                        }
+                        else
+                        {
+                            Console.WriteLine("\nErro ao renomear o arquivo.");
+                        }
                     }
                     else
                     {
-                        Console.WriteLine("\nErro ao renomear o arquivo.");
+                        // Marca o arquivo como rejeitado para não ser oferecido novamente
+                        _fileOrganizerService.RejectFile(registro.FilePath);
+                        Console.WriteLine("\nProposta rejeitada. O arquivo não será oferecido novamente.");
                     }
                     
                     Console.WriteLine("\nPressione qualquer tecla para continuar...");
                     Console.ReadKey();
+                }
+
+                loteAtual++;
+
+                // Verifica se há mais lotes para processar
+                if (loteAtual < totalLotes)
+                {
+                    Console.Clear();
+                    Console.WriteLine("=================================================");
+                    Console.WriteLine("              CONTINUAR PROCESSAMENTO            ");
+                    Console.WriteLine("=================================================");
+                    Console.WriteLine($"\nLote {loteAtual} de {totalLotes} concluído.");
+                    Console.WriteLine("\nDeseja continuar para o próximo lote? (S/N)");
+                    
+                    resposta = Console.ReadLine();
+                    
+                    if (resposta?.Trim().ToUpper() != "S")
+                    {
+                        Console.WriteLine("\nProcessamento interrompido pelo usuário.");
+                        break;
+                    }
                 }
             }
 
@@ -268,7 +333,7 @@ namespace bot_fileorganizer
                 
                 foreach (var registro in registros)
                 {
-                    string status = registro.Accepted ? "Aceito" : "Rejeitado";
+                    string status = registro.Accepted ? "Aceito" : (registro.Rejected ? "Rejeitado" : "Pendente");
                     Console.WriteLine($"\nData: {registro.OperationDate}");
                     Console.WriteLine($"Arquivo: {registro.OriginalName}");
                     Console.WriteLine($"Novo nome: {registro.ProposedName}");
