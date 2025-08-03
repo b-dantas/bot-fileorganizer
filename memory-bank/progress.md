@@ -8,6 +8,7 @@ e este projeto adere ao [Versionamento Semântico](https://semver.org/lang/pt-BR
 ## [1.1.3] - 2025-06-19
 
 ### Adicionado
+
 - Sistema avançado de extração de metadados com níveis de confiança
 - Classes auxiliares `MetadataExtractionResult` e `Author` para representar resultados de extração
 - Métodos específicos para extração de título e autor por tipo de documento
@@ -16,6 +17,7 @@ e este projeto adere ao [Versionamento Semântico](https://semver.org/lang/pt-BR
 - Análise de contexto para melhorar a precisão da extração
 
 ### Melhorado
+
 - Algoritmo de extração de título com heurísticas específicas por tipo de documento
 - Algoritmo de extração de autor com suporte para múltiplos autores
 - Detecção de padrões de autoria em diferentes formatos de documentos
@@ -25,6 +27,7 @@ e este projeto adere ao [Versionamento Semântico](https://semver.org/lang/pt-BR
 ## [1.1.2] - 2025-06-19
 
 ### Adicionado
+
 - Novo tipo de documento: "Apresentação" para detectar slides e apresentações em PDF
 - Palavras-chave específicas para identificação de apresentações
 - Método `CalculatePresentationConfidence` para calcular o percentual de confiança
@@ -35,6 +38,7 @@ e este projeto adere ao [Versionamento Semântico](https://semver.org/lang/pt-BR
 ## [1.1.1] - 2025-06-19
 
 ### Adicionado
+
 - Nova opção no menu principal: "Atualizar metadados de arquivos padronizados"
 - Implementação da extração de título e autor diretamente do nome do arquivo
 - Classe `DocumentTypeResult` para armazenar o tipo de documento e seu percentual de confiança
@@ -43,6 +47,7 @@ e este projeto adere ao [Versionamento Semântico](https://semver.org/lang/pt-BR
 - Exibição do percentual de confiança e lista de outros tipos possíveis na interface
 
 ### Alterado
+
 - Modificado o método `ProcessarArquivos` para processar cada arquivo completamente antes de passar para o próximo
 - Simplificado o fluxo para processar todos os arquivos padronizados em uma única sequência
 - Método `IsFileNameStandardized` agora aceita diferentes prefixos com base no tipo de documento
@@ -50,12 +55,14 @@ e este projeto adere ao [Versionamento Semântico](https://semver.org/lang/pt-BR
 - Substituída a pergunta "Deseja processar os arquivos em lotes?" por "Deseja atualizar os metadados destes arquivos?"
 
 ### Corrigido
+
 - Problema de dependência relacionado à biblioteca iText7 (adicionada a dependência `itext7.bouncy-castle-adapter`)
 - Método `UpdateMetadata` agora preserva o arquivo original para evitar perda de dados
 
 ## [1.1.0] - 2025-06-19
 
 ### Adicionado
+
 - Integração com a biblioteca iText7 para manipulação de PDFs
 - Implementação da extração real de metadados de PDFs (título e autor)
 - Processamento em lotes de 10 arquivos por vez
@@ -69,6 +76,7 @@ e este projeto adere ao [Versionamento Semântico](https://semver.org/lang/pt-BR
   - `IsMagazine`: Identifica se um PDF é uma revista
 
 ### Melhorado
+
 - Heurísticas para identificação de e-books baseadas em:
   - Número de páginas típico para cada tipo de documento
   - Palavras-chave específicas em diferentes idiomas
@@ -82,6 +90,7 @@ e este projeto adere ao [Versionamento Semântico](https://semver.org/lang/pt-BR
 ## [1.0.0] - 2025-06-19
 
 ### Adicionado
+
 - Estrutura inicial do projeto:
   - `Program.cs`: Interface de console e ponto de entrada da aplicação
   - `Models/FileRecord.cs`: Modelo para armazenar informações dos arquivos
